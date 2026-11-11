@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>أرضي</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Noto+Kufi+Arabic:wght@600;700&display=swap">
+<style>
+:root{
+  --bg:#f5f6f1; --surface:#fff; --fg:#1f2a1f; --muted:#5d6a5c; --line:#dfe3d6;
+  --leaf:#2f6b3a; --leaf-soft:#e4efe2; --soil:#8a5a32; --soil-soft:#f3e9df; --sky:#2b6a8f; --sky-soft:#e1eef5;
+  --ok:#2f7d43; --ok-bg:#e3f2e6; --warn:#a86a00; --warn-bg:#fbf0d9; --bad:#b3352b; --bad-bg:#fae3e0;
+  --display:"Noto Kufi Arabic","IBM Plex Sans Arabic",Tahoma,sans-serif;
+  --body:"IBM Plex Sans Arabic",Tahoma,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141a14; --surface:#1c241c; --fg:#e7ede4; --muted:#a3b0a0; --line:#2f3a2e;
+  --leaf:#7cc28a; --leaf-soft:#22362a; --soil:#d9a273; --soil-soft:#35281d; --sky:#7fb9dc; --sky-soft:#1b2d38;
+  --ok:#7fd193; --ok-bg:#1f3626; --warn:#f0bd5a; --warn-bg:#3a2f17; --bad:#f08a80; --bad-bg:#3d201d; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.65;display:flex;flex-direction:column}
+header{padding:10px max(16px,env(safe-area-inset-left)) 8px max(16px,env(safe-area-inset-right));padding-top:calc(10px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;background:var(--surface);border-bottom:1px solid var(--line)}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.4;text-wrap:balance}
+h1{font-size:1.3rem;color:var(--leaf)}
+h2{font-size:1.1rem} h3{font-size:.98rem}
+p{margin:0}
+select,input,button,textarea{font:inherit;color:inherit}
+select,input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+#fieldSel{flex:1;max-width:260px}
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;display:none}
+.view.on{display:block}
+#v-map{display:none;flex-direction:column}
+#v-map.on{display:flex}
+#map{flex:1;min-height:240px}
+.pad{padding:16px max(16px,env(safe-area-inset-left)) 24px max(16px,env(safe-area-inset-right));max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--leaf);color:var(--surface);font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.small{padding:6px 10px;font-size:.9rem}
+.btn:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.maptools{padding:10px max(16px,env(safe-area-inset-left)) 10px max(16px,env(safe-area-inset-right));background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.hint{color:var(--muted);font-size:.9rem}
+.err{color:var(--bad)}
+nav{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{border:0;background:none;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.8rem;color:var(--muted);cursor:pointer}
+nav button .ic{font-size:1.25rem;line-height:1}
+nav button[aria-selected="true"]{color:var(--leaf);font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid2 select,.grid2 input,.f select{width:100%}
+.grid2 label,.f{display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted)}
+.grid2 label > *, .f > *{color:var(--fg)}
+.stat{display:flex;flex-direction:column}
+.stat b{font-family:var(--display);font-size:1.4rem;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.85rem}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.85rem}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-inline-end:4px}
+.alert{border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.alert .t{font-weight:600}
+.a-bad{background:var(--bad-bg);color:var(--bad)} .a-warn{background:var(--warn-bg);color:var(--warn)} .a-ok{background:var(--ok-bg);color:var(--ok)} .a-info{background:var(--sky-soft);color:var(--sky)}
+.alert p{color:var(--fg)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.92rem}
+th,td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:.82rem}
+td:first-child,th:first-child{text-align:start}
+.meter{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.meter span{display:block;height:100%}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.leaflet-container{font-family:var(--body)}
+.vertex{background:var(--surface);border:3px solid #f2c200;border-radius:50%}
+@media (max-width:420px){.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>أرضي</h1>
+  <select id="fieldSel" aria-label="اختار الأرض"></select>
+</header>
+
+<main>
+  <!-- 1. MAP -->
+  <section class="view on" id="v-map">
+    <div id="map" aria-label="خريطة القمر الصناعي"></div>
+    <div class="maptools">
+      <div class="row" id="drawIdle">
+        <button class="btn" id="bDraw">✏️ ارسم أرض جديدة</button>
+        <button class="btn ghost" id="bLocate">📍 موقعي</button>
+        <button class="btn ghost" id="bDelete" hidden>🗑️ امسح الأرض دي</button>
+      </div>
+      <div class="row" id="drawOn" hidden>
+        <button class="btn" id="bFinish">✔️ خلصت</button>
+        <button class="btn ghost" id="bUndo">↩️ تراجع</button>
+        <button class="btn ghost" id="bCancel">إلغاء</button>
+      </div>
+      <p class="hint" id="mapHint">قرّب على أرضك، واضغط «ارسم أرض جديدة»، وبعدين المس أركان الأرض واحد واحد.</p>
+    </div>
+  </section>
+
+  <!-- 2+3. CROP HEALTH -->
+  <section class="view" id="v-health"><div class="pad">
+    <div class="panel">
+      <h2>صحة الزرع من القمر الصناعي</h2>
+      <p class="hint">صور Sentinel-2 المجانية، بتتجدد كل حوالي ٥ أيام، بدقة ١٠ متر. الأخضر الغامق = زرع قوي، الأحمر = زرع ضعيف أو أرض فاضية.</p>
+      <div class="row"><button class="btn" id="bNdvi">🛰️ حلّل أحدث صورة</button><span class="hint" id="ndviStatus"></span></div>
+      <div id="ndviOut" hidden>
+        <div class="stats">
+          <div class="stat"><b id="nMean">–</b><span>متوسط مؤشر الخضرة (NDVI)</span></div>
+          <div class="stat"><b id="nWeak">–</b><span>من الأرض ضعيف</span></div>
+          <div class="stat"><b id="nDate">–</b><span>تاريخ الصورة</span></div>
+        </div>
+        <p id="nVerdict"></p>
+        <div class="legend">
+          <span><i style="background:#a63a22"></i>فاضية / ضعيف جداً</span>
+          <span><i style="background:#e0812a"></i>ضعيف</span>
+          <span><i style="background:#e8c547"></i>متوسط</span>
+          <span><i style="background:#7fbf4d"></i>كويس</span>
+          <span><i style="background:#1f7a33"></i>قوي</span>
+        </div>
+        <button class="btn ghost small" id="bShowOnMap">اعرض الخريطة الملونة</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>رطوبة التربة</h2>
+      <p class="hint">تقدير من نموذج الطقس لموقع الأرض (مش قياس في الحقل). استخدمه كمؤشر، وتأكد بإيدك أو بحساس رطوبة.</p>
+      <div id="soilOut"><p class="empty">اختار أرض عشان تظهر الرطوبة.</p></div>
+    </div>
+  </div></section>
+
+  <!-- 4+5. WEATHER & ALERTS -->
+  <section class="view" id="v-weather"><div class="pad">
+    <div class="panel"><h2>تنبيهات الأيام الجاية</h2><div id="alerts"><p class="empty">اختار أرض عشان تظهر التنبيهات.</p></div></div>
+    <div class="panel"><h2>الجو ٧ أيام</h2><div class="tablewrap" id="wxTable"></div>
+      <p class="hint">أحسن وقت للرش: رياح أقل من ١٥ كم/س، حرارة أقل من ٣٠°، ومفيش مطر في الـ ٦ ساعات اللي بعدها.</p>
+      <div id="sprayWin"></div>
+    </div>
+  </div></section>
+
+  <!-- 6. IRRIGATION -->
+  <section class="view" id="v-irr"><div class="pad">
+    <div class="panel">
+      <h2>حاسبة الري</h2>
+      <div class="grid2">
+        <label>المحصول<select id="iCrop"></select></label>
+        <label>المرحلة<select id="iStage">
+          <option value="ini">بداية (شتلات / إنبات)</option>
+          <option value="dev">نمو خضري</option>
+          <option value="mid" selected>تزهير وعقد / ذروة</option>
+          <option value="end">نضج وقرب الحصاد</option></select></label>
+        <label>نظام الري<select id="iSys">
+          <option value="0.9">تنقيط</option><option value="0.75">رش</option><option value="0.6">غمر محسّن / خطوط</option></select></label>
+        <label>المساحة (فدان)<input id="iArea" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        <label>عدد النباتات في الفدان<input id="iPlants" type="number" min="0" step="1" inputmode="numeric"></label>
+        <label>نقاطات لكل نبات<input id="iEmit" type="number" min="0" step="1" value="2" inputmode="numeric"></label>
+        <label>تصرف النقاط (لتر/ساعة)<input id="iFlow" type="number" min="0" step="0.5" value="4" inputmode="decimal"></label>
+        <label>ملوحة مية الري EC (dS/m)<input id="iEC" type="number" min="0" step="0.1" value="0.8" inputmode="decimal"></label>
+      </div>
+      <p class="hint">المعادلة: احتياج المحصول = ET0 × Kc، وبعدين نقسم على كفاءة النظام ونزود غسيل أملاح حسب ملوحة المية، ونطرح المطر الفعّال. الأرقام نقطة بداية، وعدّلها حسب حالة الأرض.</p>
+    </div>
+    <div class="panel"><h2>كمية الري لكل يوم</h2><div class="tablewrap" id="irrTable"><p class="empty">اختار أرض عشان نجيب الجو ونحسب.</p></div><p id="irrSum"></p></div>
+  </div></section>
+</main>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-v="v-map"><span class="ic">🗺️</span>أرضي</button>
+  <button role="tab" aria-selected="false" data-v="v-health"><span class="ic">🌱</span>صحة الزرع</button>
+  <button role="tab" aria-selected="false" data-v="v-weather"><span class="ic">🌤️</span>الجو</button>
+  <button role="tab" aria-selected="false" data-v="v-irr"><span class="ic">💧</span>الري</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script>
+"use strict";
+/* ---------- crops: FAO-56 Kc (ini, mid, end), salinity threshold ECe (dS/m), frost/cold threshold °C ---------- */
+const CROPS = {
+  tomato:{n:"طماطم",kc:[0.6,1.15,0.8],ece:2.5,cold:8,blight:true,plants:10000},
+  potato:{n:"بطاطس",kc:[0.5,1.15,0.75],ece:1.7,cold:3,blight:true,plants:16000},
+  wheat:{n:"قمح",kc:[0.3,1.15,0.25],ece:6.0,cold:-2,rust:true},
+  maize:{n:"ذرة",kc:[0.3,1.2,0.6],ece:1.7,cold:5},
+  rice:{n:"أرز",kc:[1.05,1.2,0.9],ece:3.0,cold:12},
+  cotton:{n:"قطن",kc:[0.35,1.18,0.6],ece:7.7,cold:10},
+  banana:{n:"موز",kc:[1.0,1.2,1.1],ece:1.0,cold:12,plants:1100,banana:true},
+  citrus:{n:"موالح",kc:[0.7,0.65,0.7],ece:1.7,cold:0,plants:180},
+  mango:{n:"مانجو",kc:[0.6,0.75,0.7],ece:1.5,cold:2,plants:100,mildew:true},
+  olive:{n:"زيتون",kc:[0.65,0.7,0.7],ece:4.0,cold:-5,plants:150},
+  grape:{n:"عنب",kc:[0.3,0.7,0.45],ece:1.5,cold:0,plants:1200,downy:true,mildew:true},
+  strawberry:{n:"فراولة",kc:[0.4,0.85,0.75],ece:1.0,cold:2,plants:24000,botrytis:true},
+  cucumber:{n:"خيار",kc:[0.6,1.0,0.75],ece:2.5,cold:8,plants:9000,downy:true,mildew:true},
+  pepper:{n:"فلفل",kc:[0.6,1.05,0.9],ece:1.5,cold:8,plants:12000},
+  onion:{n:"بصل",kc:[0.7,1.05,0.75],ece:1.2,cold:-2,downy:true},
+};
+const SOILS = {sand:{n:"رملية",fc:0.12,wp:0.05},loam:{n:"طميية / صفرا",fc:0.27,wp:0.12},clay:{n:"طينية (الدلتا والوادي)",fc:0.38,wp:0.22},calc:{n:"جيرية",fc:0.22,wp:0.10}};
+
+/* ---------- storage ---------- */
+const store = {
+  get(){ try{ return JSON.parse(localStorage.getItem("ardi.fields")||"[]"); }catch(_){ return []; } },
+  set(v){ try{ localStorage.setItem("ardi.fields", JSON.stringify(v)); }catch(_){} }
+};
+let fields = store.get();
+let current = null;          // selected field
+let wx = null;               // weather for current field
+const $ = id => document.getElementById(id);
+const fmt = (x,d=1) => (x==null||isNaN(x)) ? "–" : Number(x).toLocaleString("ar-EG",{maximumFractionDigits:d,minimumFractionDigits:0});
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => showView(b.dataset.v));
+function showView(id){
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x.dataset.v===id));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id===id));
+  if (id==="v-map") setTimeout(()=>map.invalidateSize(),50);
+}
+
+/* ---------- map ---------- */
+const map = L.map("map",{zoomControl:true}).setView([27.0,31.0],6);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Imagery © Esri, Maxar, Earthstar Geographics"}).addTo(map);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,opacity:.8}).addTo(map);
+const fieldLayer = L.layerGroup().addTo(map);
+let ndviOverlay = null;
+
+function areaFeddan(coords){ // coords [[lat,lng]]
+  if (coords.length<3) return 0;
+  const lat0 = coords.reduce((s,c)=>s+c[0],0)/coords.length * Math.PI/180;
+  const R=6371008.8, pts = coords.map(([la,ln])=>[ln*Math.PI/180*R*Math.cos(lat0), la*Math.PI/180*R]);
+  let a=0; for(let i=0;i<pts.length;i++){const [x1,y1]=pts[i],[x2,y2]=pts[(i+1)%pts.length]; a+=x1*y2-x2*y1;}
+  return Math.abs(a)/2/4200;
+}
+function centroid(c){ return [c.reduce((s,p)=>s+p[0],0)/c.length, c.reduce((s,p)=>s+p[1],0)/c.length]; }
+
+function drawFields(){
+  fieldLayer.clearLayers();
+  fields.forEach(f => {
+    const sel = current && f.id===current.id;
+    const poly = L.polygon(f.coords,{color:sel?"#f2c200":"#ffffff",weight:sel?3:2,fillOpacity:sel&&!ndviOverlay?0.12:0});
+    poly.bindTooltip(`${f.name} · ${fmt(areaFeddan(f.coords),2)} فدان`,{direction:"center",permanent:sel,className:""});
+    poly.on("click",()=>selectField(f.id));
+    poly.addTo(fieldLayer);
+  });
+}
+
+/* drawing */
+let drawing=null;
+$("bDraw").onclick = () => { drawing={pts:[],layer:L.polyline([],{color:"#f2c200",weight:3,dashArray:"6 6"}).addTo(map),marks:[]}; toggleDraw(true); };
+$("bUndo").onclick = () => { if(!drawing||!drawing.pts.length) return; drawing.pts.pop(); map.removeLayer(drawing.marks.pop()); drawing.layer.setLatLngs(drawing.pts); updDrawHint(); };
+$("bCancel").onclick = endDraw;
+$("bFinish").onclick = () => {
+  if (!drawing || drawing.pts.length<3){ $("mapHint").textContent="محتاج ٣ نقط على الأقل."; return; }
+  const n = fields.length+1;
+  const f = {id:Date.now().toString(36), name:`أرض ${fmt(n,0)}`, coords:drawing.pts.map(p=>[+p[0].toFixed(6),+p[1].toFixed(6)]), crop:"tomato", soil:"clay", stage:"mid", sys:"0.9"};
+  const nm = window.prompt ? window.prompt("اسم الأرض؟", f.name) : null;
+  if (nm && nm.trim()) f.name = nm.trim().slice(0,40);
+  fields.push(f); store.set(fields); endDraw(); selectField(f.id);
+};
+map.on("click", e => {
+  if (!drawing) return;
+  const p=[e.latlng.lat,e.latlng.lng]; drawing.pts.push(p);
+  drawing.marks.push(L.circleMarker(e.latlng,{radius:6,color:"#f2c200",fillColor:"#fff",fillOpacity:1,weight:3}).addTo(map));
+  drawing.layer.setLatLngs([...drawing.pts, ...(drawing.pts.length>2?[drawing.pts[0]]:[])]); updDrawHint();
+});
+function updDrawHint(){ const k=drawing.pts.length; $("mapHint").textContent = k<3 ? `المس ركن الأرض (${fmt(k,0)} نقطة لحد دلوقتي).` : `المساحة تقريباً ${fmt(areaFeddan(drawing.pts),2)} فدان. كمّل الأركان أو اضغط «خلصت».`; }
+function endDraw(){ if(drawing){ map.removeLayer(drawing.layer); drawing.marks.forEach(m=>map.removeLayer(m)); } drawing=null; toggleDraw(false); }
+function toggleDraw(on){ $("drawIdle").hidden=on; $("drawOn").hidden=!on; map.getContainer().style.cursor=on?"crosshair":""; if(on) $("mapHint").textContent="المس أول ركن في الأرض."; else $("mapHint").textContent = current?`${current.name}: ${fmt(areaFeddan(current.coords),2)} فدان. اختار «صحة الزرع» أو «الجو» أو «الري» من تحت.`:"قرّب على أرضك، واضغط «ارسم أرض جديدة»، وبعدين المس أركان الأرض واحد واحد."; }
+$("bLocate").onclick = () => {
+  if(!navigator.geolocation){ $("mapHint").textContent="الموبايل مش بيدعم تحديد الموقع."; return; }
+  $("mapHint").textContent="بنحدد موقعك…";
+  navigator.geolocation.getCurrentPosition(p=>{ map.setView([p.coords.latitude,p.coords.longitude],17); $("mapHint").textContent="ده موقعك. ارسم أرضك."; },
+    ()=>{ $("mapHint").textContent="مقدرناش نحدد موقعك. اسمح بالموقع أو قرّب بإيدك."; },{enableHighAccuracy:true,timeout:15000});
+};
+$("bDelete").onclick = () => {
+  if(!current) return;
+  if(window.confirm && !window.confirm(`تمسح «${current.name}»؟`)) return;
+  fields = fields.filter(f=>f.id!==current.id); store.set(fields); current=null; clearNdvi(); refreshSel(); drawFields(); toggleDraw(false);
+};
+
+/* ---------- field select ---------- */
+function refreshSel(){
+  const s=$("fieldSel");
+  s.innerHTML = fields.length ? fields.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("") : `<option value="">لسه مفيش أرض. ارسم واحدة</option>`;
+  if (current) s.value=current.id;
+  $("bDelete").hidden=!current;
+}
+$("fieldSel").onchange = e => e.target.value && selectField(e.target.value);
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+function selectField(id){
+  current = fields.find(f=>f.id===id)||null; if(!current) return;
+  clearNdvi(); refreshSel(); drawFields(); toggleDraw(false);
+  map.fitBounds(L.polygon(current.coords).getBounds(),{maxZoom:18,padding:[30,30]});
+  // irrigation form from field
+  $("iCrop").value=current.crop; $("iStage").value=current.stage||"mid"; $("iSys").value=current.sys||"0.9";
+  $("iArea").value=(+areaFeddan(current.coords).toFixed(2));
+  $("iPlants").value=current.plants || CROPS[current.crop].plants || "";
+  if(current.emit) $("iEmit").value=current.emit; if(current.flow) $("iFlow").value=current.flow; if(current.ec) $("iEC").value=current.ec;
+  $("soilSel") && ($("soilSel").value=current.soil);
+  loadWeather();
+}
+
+/* ---------- weather ---------- */
+async function loadWeather(){
+  if(!current) return;
+  const [lat,lon]=centroid(current.coords);
+  $("alerts").innerHTML=`<p class="empty">بنجيب الجو…</p>`;
+  const url = "https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+
+    "&hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm"+
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,relative_humidity_2m_max,relative_humidity_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,et0_fao_evapotranspiration"+
+    "&timezone=auto&forecast_days=7";
+  try{
+    const r = await fetch(url); if(!r.ok) throw new Error(r.status);
+    wx = await r.json();
+    renderWeather(); renderAlerts(); renderSoil(); renderIrr();
+  }catch(e){
+    wx=null;
+    const m=`<p class="err">مقدرناش نجيب الجو. اتأكد من الإنترنت وجرّب تاني.</p>`;
+    $("alerts").innerHTML=m; $("wxTable").innerHTML=""; $("soilOut").innerHTML=m; $("irrTable").innerHTML=m;
+  }
+}
+const WCODE = c => c===0?"☀️ صافي":c<=2?"🌤️ غيوم خفيفة":c===3?"☁️ غايم":c<=48?"🌫️ شبورة":c<=67?"🌧️ مطر":c<=77?"❄️ تلج":c<=82?"🌦️ زخات":"⛈️ عواصف";
+const dayName = iso => new Date(iso+"T12:00").toLocaleDateString("ar-EG",{weekday:"long"});
+const dayShort = iso => new Date(iso+"T12:00").toLocaleDateString("ar-EG",{weekday:"short",day:"numeric",month:"numeric"});
+
+function renderWeather(){
+  const d=wx.daily;
+  let h=`<table><thead><tr><th>اليوم</th><th>الجو</th><th>العظمى°</th><th>الصغرى°</th><th>الرطوبة٪</th><th>رياح كم/س</th><th>مطر مم</th></tr></thead><tbody>`;
+  d.time.forEach((t,i)=>{ h+=`<tr><td>${dayShort(t)}</td><td>${WCODE(d.weather_code[i])}</td><td>${fmt(d.temperature_2m_max[i],0)}</td><td>${fmt(d.temperature_2m_min[i],0)}</td><td>${fmt(d.relative_humidity_2m_min[i],0)}–${fmt(d.relative_humidity_2m_max[i],0)}</td><td>${fmt(d.wind_speed_10m_max[i],0)}</td><td>${fmt(d.precipitation_sum[i],1)}</td></tr>`; });
+  $("wxTable").innerHTML=h+"</tbody></table>";
+  // spray windows
+  const H=wx.hourly, wins={};
+  for(let i=0;i<H.time.length;i++){
+    const hr=+H.time[i].slice(11,13); if(hr<5||hr>19) continue;
+    const rainNext=H.precipitation.slice(i,i+6).reduce((a,b)=>a+(b||0),0);
+    if(H.wind_speed_10m[i]<15 && H.temperature_2m[i]<30 && rainNext<0.2){ const day=H.time[i].slice(0,10); (wins[day]=wins[day]||[]).push(hr); }
+  }
+  let s=`<h3>مواعيد مناسبة للرش</h3><table><tbody>`;
+  d.time.forEach(t=>{ const hs=wins[t]||[]; s+=`<tr><td>${dayShort(t)}</td><td style="text-align:start">${hs.length?ranges(hs):"<span class='err'>مش مناسب</span>"}</td></tr>`; });
+  $("sprayWin").innerHTML=`<div class="tablewrap">${s}</tbody></table></div>`;
+}
+function ranges(hs){ const out=[]; let a=hs[0],b=hs[0]; for(let i=1;i<=hs.length;i++){ if(hs[i]===b+1){b=hs[i];continue;} out.push(`${hh(a)}–${hh(b+1)}`); a=b=hs[i]; } return out.join("، "); }
+function hh(h){ const p=h<12?"ص":"م"; const x=h%12||12; return `${fmt(x,0)}${p}`; }
+
+/* ---------- alerts ---------- */
+function renderAlerts(){
+  const c=CROPS[current.crop], d=wx.daily, H=wx.hourly, out=[];
+  const add=(lvl,icon,t,p)=>out.push({lvl,icon,t,p});
+  // per-day humidity hours
+  const days=d.time.map((t,i)=>{
+    const idx=H.time.map((x,j)=>x.startsWith(t)?j:-1).filter(j=>j>=0);
+    const wet=idx.filter(j=>H.relative_humidity_2m[j]>=90).length;
+    const mild=idx.filter(j=>H.relative_humidity_2m[j]>=60 && H.temperature_2m[j]>=20 && H.temperature_2m[j]<=30).length;
+    return {t,i,wet,mild,tmin:d.temperature_2m_min[i],tmax:d.temperature_2m_max[i],wind:d.wind_speed_10m_max[i],rain:d.precipitation_sum[i]||0};
+  });
+  // frost / cold
+  const cold=days.filter(x=>x.tmin<=c.cold);
+  if(cold.length){ const x=cold[0];
+    add(x.tmin<=0?"bad":"warn","🥶", x.tmin<=0?`صقيع متوقع ${dayName(x.t)} (${fmt(x.tmin,0)}°)`:`برد على ${c.n} ${dayName(x.t)} (${fmt(x.tmin,0)}°)`,
+      c.banana?"اسقي رية خفيفة قبل الليلة الباردة (الأرض الرطبة بتحتفظ بالدفا)، وغطّي السباطات والنباتات الصغيرة، ومتقطعش ورق دلوقتي.":"اسقي قبلها بيوم، وغطّي الشتلات لو ممكن، وأخّر التسميد الأزوتي.");
+  }
+  // heat
+  const hot=days.filter(x=>x.tmax>=40);
+  if(hot.length) add("bad","🔥",`موجة حر ${dayName(hot[0].t)} (${fmt(hot[0].tmax,0)}°)`,"زوّد نبضة ري الصبح بدري، ومترشّش في الحر، ومتسمّدش في النهار ده.");
+  else { const warm=days.filter(x=>x.tmax>=36); if(warm.length) add("warn","☀️",`حر شديد ${dayName(warm[0].t)} (${fmt(warm[0].tmax,0)}°)`,"راقب الذبول الضهر، واسقي الصبح بدري أو آخر النهار."); }
+  // wind
+  const windy=days.filter(x=>x.wind>=30);
+  if(windy.length) add("warn","💨",`رياح شديدة ${dayName(windy[0].t)} (${fmt(windy[0].wind,0)} كم/س)`, c.banana?"اسند نباتات الموز اللي عليها سباطات، ومترشّش.":"مترشّش في اليوم ده، وثبّت الأغطية والصوب.");
+  // disease risk
+  const wetDays=days.filter(x=>x.wet>=10 && x.tmin>=10);
+  if(c.blight && wetDays.length>=2) add("bad","🍂",`خطر عالي للندوة المتأخرة على ال${c.n}`,`رطوبة فوق ٩٠٪ لمدة طويلة في ${fmt(wetDays.length,0)} أيام. رش وقائي بمبيد فطري مسجل قبل الأيام دي، وافحص الورق السفلي.`);
+  else if(c.blight && wetDays.length===1) add("warn","🍂","خطر متوسط للندوة","يوم رطب جداً. راقب الورق وجهّز رشة وقائية.");
+  if(c.downy && days.some(x=>x.wet>=6 && x.tmin>=8 && x.tmax<=26)) add("warn","🌫️","جو مناسب للبياض الزغبي","ندى ورطوبة عالية. هوّي الزرع، وقلّل الري بالرش، وفكّر في رشة وقائية.");
+  if(c.mildew && days.filter(x=>x.mild>=6).length>=3) add("warn","⚪","جو مناسب للبياض الدقيقي","حرارة ٢٠–٣٠° ورطوبة متوسطة لأيام. افحص الورق والرش بالكبريت أو مبيد مسجل لو ظهر.");
+  if(c.botrytis && days.some(x=>x.wet>=8)) add("warn","🍓","خطر العفن الرمادي","رطوبة عالية. شيل الثمار المصابة وهوّي الزرع.");
+  if(c.rust && days.filter(x=>x.wet>=6 && x.tmin>=5 && x.tmax<=22).length>=2) add("warn","🟧","جو مناسب لصدأ القمح","افحص الورق كل يومين، خصوصاً الأصناف الحساسة.");
+  // rain
+  const rainy=days.filter(x=>x.rain>=3);
+  if(rainy.length) add("info","🌧️",`مطر متوقع ${dayName(rainy[0].t)} (${fmt(rainy[0].rain,0)} مم)`,"قلّل الري قبلها، وأجّل الرش والتسميد الأرضي.");
+  if(!out.length) add("ok","✅","مفيش تنبيهات مهمة الأسبوع ده","الجو مناسب. التزم ببرنامج الري والرش العادي.");
+  const order={bad:0,warn:1,info:2,ok:3};
+  out.sort((a,b)=>order[a.lvl]-order[b.lvl]);
+  $("alerts").innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">${out.map(a=>`<div class="alert a-${a.lvl}"><span>${a.icon}</span><div><div class="t">${a.t}</div><p>${a.p}</p></div></div>`).join("")}</div><p class="hint">المحصول: ${c.n}. غيّره من صفحة «الري».</p>`;
+}
+
+/* ---------- soil moisture ---------- */
+function renderSoil(){
+  const H=wx.hourly; const now=Date.now();
+  let k=H.time.findIndex(t=>new Date(t).getTime()>=now); if(k<0) k=0;
+  const soil=SOILS[current.soil]||SOILS.clay;
+  const layers=[["٣–٩ سم","soil_moisture_3_to_9cm"],["٩–٢٧ سم","soil_moisture_9_to_27cm"],["٢٧–٨١ سم","soil_moisture_27_to_81cm"]];
+  let h=`<label class="f">نوع التربة<select id="soilSel">${Object.entries(SOILS).map(([k,s])=>`<option value="${k}">${s.n}</option>`).join("")}</select></label>`;
+  h+=layers.map(([n,key])=>{
+    const v=H[key]?H[key][k]:null; if(v==null) return "";
+    const aw=Math.max(0,Math.min(1,(v-soil.wp)/(soil.fc-soil.wp)));
+    const [lbl,col]= aw<0.35?["ناشفة، محتاج ري","var(--bad)"]: aw<0.6?["بدأت تنشف","var(--warn)"]: aw<=1.05?["رطوبة مناسبة","var(--ok)"]:["مشبعة","var(--sky)"];
+    return `<div><div class="row" style="justify-content:space-between"><span>عمق ${n}</span><b style="color:${col}">${lbl} · ${fmt(v*100,0)}٪</b></div><div class="meter"><span style="width:${Math.round(aw*100)}%;background:${col}"></span></div></div>`;
+  }).join("");
+  h+=`<p class="hint">٪ = نسبة المية في حجم التربة. السعة الحقلية لتربة ${soil.n} حوالي ${fmt(soil.fc*100,0)}٪.</p>`;
+  $("soilOut").innerHTML=h; $("soilSel").value=current.soil;
+  $("soilSel").onchange=e=>{ current.soil=e.target.value; store.set(fields); renderSoil(); };
+}
+
+/* ---------- irrigation ---------- */
+$("iCrop").innerHTML=Object.entries(CROPS).map(([k,c])=>`<option value="${k}">${c.n}</option>`).join("");
+["iCrop","iStage","iSys","iArea","iPlants","iEmit","iFlow","iEC"].forEach(id=>$(id).addEventListener("input",()=>{
+  if(!current) return;
+  if(id==="iCrop"){ current.crop=$("iCrop").value; const p=CROPS[current.crop].plants; $("iPlants").value=p||""; current.plants=p||null; if(wx) renderAlerts(); }
+  current.stage=$("iStage").value; current.sys=$("iSys").value;
+  current.plants=+$("iPlants").value||null; current.emit=+$("iEmit").value||null; current.flow=+$("iFlow").value||null; current.ec=+$("iEC").value;
+  store.set(fields); renderIrr();
+}));
+function kcFor(c,stage){ const [a,b,e]=c.kc; return stage==="ini"?a:stage==="dev"?(a+b)/2:stage==="mid"?b:e; }
+function calcDay(et0, rain, o){
+  const etc=et0*o.kc;                                   // mm/day
+  const eff=Math.max(0, rain>=2 ? rain*0.8 : 0);         // effective rain
+  const net=Math.max(0, etc-eff);
+  const ece=o.ece, ecw=o.ec||0;
+  const lr = ecw>0 ? Math.min(0.5, ecw/(5*ece-ecw>0?5*ece-ecw:ecw)) : 0;
+  const gross = net/o.eff/(1-lr);                         // mm
+  const m3 = gross*4.2;                                  // per feddan
+  const lpp = o.plants? m3*1000/o.plants : null;          // L/plant
+  const hrs = (lpp && o.emit && o.flow) ? lpp/(o.emit*o.flow) : null;
+  return {etc,net,gross,m3,lpp,hrs,lr};
+}
+function renderIrr(){
+  if(!current||!wx) return;
+  const c=CROPS[$("iCrop").value], o={kc:kcFor(c,$("iStage").value), eff:+$("iSys").value, ece:c.ece, ec:+$("iEC").value||0, plants:+$("iPlants").value||0, emit:+$("iEmit").value||0, flow:+$("iFlow").value||0};
+  const area=+$("iArea").value||0, d=wx.daily, drip=o.eff===0.9;
+  let h=`<table><thead><tr><th>اليوم</th><th>ET0 مم</th><th>احتياج المحصول مم</th><th>م³/فدان</th><th>م³ للأرض كلها</th>${drip?"<th>لتر/نبات</th><th>ساعات تشغيل</th>":""}</tr></thead><tbody>`;
+  let tot=0, lrShown=0;
+  d.time.forEach((t,i)=>{ const r=calcDay(d.et0_fao_evapotranspiration[i], d.precipitation_sum[i]||0, o); tot+=r.m3; lrShown=r.lr;
+    h+=`<tr><td>${dayShort(t)}</td><td>${fmt(d.et0_fao_evapotranspiration[i],1)}</td><td>${fmt(r.etc,1)}</td><td><b>${fmt(r.m3,0)}</b></td><td>${fmt(r.m3*area,0)}</td>${drip?`<td>${fmt(r.lpp,1)}</td><td>${r.hrs==null?"–":hm(r.hrs)}</td>`:""}</tr>`; });
+  $("irrTable").innerHTML=h+"</tbody></table>";
+  $("irrSum").innerHTML=`إجمالي الأسبوع: <b>${fmt(tot,0)} م³/فدان</b>${area?` · <b>${fmt(tot*area,0)} م³</b> للأرض (${fmt(area,2)} فدان)`:""}. Kc = ${fmt(o.kc,2)}${lrShown>0.005?` · غسيل أملاح ${fmt(lrShown*100,0)}٪`:""}.${drip&&!o.plants?" اكتب عدد النباتات عشان نحسب ساعات التشغيل.":""}${drip?" على التربة الرملية قسّم التشغيل على ٢–٤ نبضات.":""}`;
+}
+function hm(h){ const H=Math.floor(h), M=Math.round((h-H)*60); return H?`${fmt(H,0)}س ${fmt(M,0)}د`:`${fmt(M,0)} دقيقة`; }
+
+/* ---------- NDVI ---------- */
+function clearNdvi(){ if(ndviOverlay){ map.removeLayer(ndviOverlay); ndviOverlay=null; } $("ndviOut").hidden=true; $("ndviStatus").textContent=""; }
+function ndviColor(v){ return v<0.2?[166,58,34]:v<0.35?[224,129,42]:v<0.5?[232,197,71]:v<0.65?[127,191,77]:[31,122,51]; }
+function pip(x,y,poly){ let ins=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const [xi,yi]=poly[i],[xj,yj]=poly[j]; if(((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi)) ins=!ins; } return ins; }
+
+async function readWindow(href, bbox){ // bbox in image CRS [minx,miny,maxx,maxy]
+  const tiff=await GeoTIFF.fromUrl(href); const img=await tiff.getImage();
+  const [ox,oy]=img.getOrigin(), [rx,ry]=img.getResolution();
+  const x0=Math.max(0,Math.floor((bbox[0]-ox)/rx)), x1=Math.min(img.getWidth(),Math.ceil((bbox[2]-ox)/rx));
+  const y0=Math.max(0,Math.floor((bbox[3]-oy)/ry)), y1=Math.min(img.getHeight(),Math.ceil((bbox[1]-oy)/ry));
+  if(x1<=x0||y1<=y0) throw new Error("outside");
+  const [data]=await img.readRasters({window:[x0,y0,x1,y1]});
+  return {data,w:x1-x0,h:y1-y0,ox:ox+x0*rx,oy:oy+y0*ry,rx,ry};
+}
+function bandScale(asset){ const b=asset&&asset["raster:bands"]&&asset["raster:bands"][0]; return {s:(b&&b.scale)||0.0001, o:(b&&b.offset)||0}; }
+
+$("bNdvi").onclick = async () => {
+  if(!current){ $("ndviStatus").textContent="اختار أرض الأول من الخريطة."; return; }
+  const btn=$("bNdvi"); btn.disabled=true; clearNdvi();
+  const st=t=>$("ndviStatus").textContent=t;
+  try{
+    st("بندوّر على أحدث صورة بدون سحب…");
+    const ring=current.coords.map(([la,ln])=>[ln,la]); ring.push(ring[0]);
+    const to=new Date(), from=new Date(to-60*864e5);
+    const r=await fetch("https://earth-search.aws.element84.com/v1/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      collections:["sentinel-2-l2a"], intersects:{type:"Polygon",coordinates:[ring]}, datetime:from.toISOString()+"/"+to.toISOString(),
+      query:{"eo:cloud_cover":{"lt":40}}, sortby:[{field:"properties.datetime",direction:"desc"}], limit:8})});
+    if(!r.ok) throw new Error("stac "+r.status);
+    const items=(await r.json()).features||[];
+    if(!items.length) throw new Error("noitems");
+    for(const it of items.slice(0,4)){
+      const epsg=it.properties["proj:epsg"]; if(!epsg) continue;
+      const zone=epsg%100, south=Math.floor(epsg/100)===327;
+      const pj=proj4("EPSG:4326",`+proj=utm +zone=${zone} ${south?"+south ":""}+datum=WGS84 +units=m +no_defs`);
+      const polyU=current.coords.map(([la,ln])=>pj.forward([ln,la]));
+      const xs=polyU.map(p=>p[0]), ys=polyU.map(p=>p[1]);
+      const bbox=[Math.min(...xs)-20,Math.min(...ys)-20,Math.max(...xs)+20,Math.max(...ys)+20];
+      st(`بنحمّل صورة ${it.properties.datetime.slice(0,10)}…`);
+      const [red,nir,scl]=await Promise.all([readWindow(it.assets.red.href,bbox),readWindow(it.assets.nir.href,bbox),it.assets.scl?readWindow(it.assets.scl.href,bbox).catch(()=>null):null]);
+      const rs=bandScale(it.assets.red), ns=bandScale(it.assets.nir);
+      const w=Math.min(red.w,nir.w), h=Math.min(red.h,nir.h);
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h; const cx=cv.getContext("2d"); const id=cx.createImageData(w,h);
+      let n=0,sum=0,weak=0,cloudy=0;
+      for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+        const px=red.ox+(x+0.5)*red.rx, py=red.oy+(y+0.5)*red.ry;
+        if(!pip(px,py,polyU)) continue;
+        const R=red.data[y*red.w+x], N=nir.data[y*nir.w+x]; if(!R||!N) continue;
+        if(scl){ const sx=Math.floor((px-scl.ox)/scl.rx), sy=Math.floor((py-scl.oy)/scl.ry); const c=(sx>=0&&sy>=0&&sx<scl.w&&sy<scl.h)?scl.data[sy*scl.w+sx]:0; if([3,8,9,10,11].includes(c)){ cloudy++; continue; } }
+        const rr=R*rs.s+rs.o, nn=N*ns.s+ns.o; const v=(nn-rr)/(nn+rr||1);
+        n++; sum+=v; if(v<0.35) weak++;
+        const [cr,cg,cb]=ndviColor(v), k=(y*w+x)*4; id.data[k]=cr; id.data[k+1]=cg; id.data[k+2]=cb; id.data[k+3]=200;
+      }
+      if(n===0 || cloudy>n){ st("الصورة دي فيها سحب على الأرض، بنجرب اللي قبلها…"); continue; }
+      cx.putImageData(id,0,0);
+      const inv=c=>{ const [ln,la]=pj.inverse(c); return [la,ln]; };
+      const sw=inv([red.ox, red.oy+h*red.ry]), ne=inv([red.ox+w*red.rx, red.oy]);
+      ndviOverlay=L.imageOverlay(cv.toDataURL(),[sw,ne],{opacity:.85,interactive:false});
+      ndviOverlay.getElement && null;
+      ndviOverlay.addTo(map); if(ndviOverlay.getElement()) ndviOverlay.getElement().style.imageRendering="pixelated";
+      drawFields();
+      const mean=sum/n, wp=weak/n;
+      $("nMean").textContent=fmt(mean,2); $("nWeak").textContent=fmt(wp*100,0)+"٪"; $("nDate").textContent=new Date(it.properties.datetime).toLocaleDateString("ar-EG",{day:"numeric",month:"short"});
+      $("nVerdict").textContent = mean<0.2?"الأرض شبه فاضية أو الزرع لسه صغير جداً (أو بعد الحصاد).":
+        wp>0.3?`فيه حوالي ${fmt(wp*100,0)}٪ من الأرض ضعيف. روح للأماكن الحمرا والبرتقالي وصوّرها في «طبيب الزرع»، وافحص الري والنقاطات هناك.`:
+        mean<0.5?"الزرع متوسط. لو المحصول في ذروة النمو، راجع التسميد والري.":"الزرع في حالة كويسة ومتجانس.";
+      $("ndviOut").hidden=false; st(`عدد النقط المحللة: ${fmt(n,0)} (كل نقطة ١٠×١٠ متر).`);
+      btn.disabled=false; return;
+    }
+    throw new Error("cloudy");
+  }catch(e){
+    const msg = e.message==="noitems"?"مفيش صور في آخر ٦٠ يوم بدون سحب.": e.message==="cloudy"?"كل الصور الأخيرة فيها سحب على الأرض. جرّب بعد كام يوم.":
+      e.message==="outside"?"الأرض برا حدود الصورة. جرّب تاني.":"مقدرناش نحمّل صورة القمر الصناعي. اتأكد من الإنترنت وجرّب تاني.";
+    $("ndviStatus").innerHTML=`<span class="err">${msg}</span>`; console.error(e);
+  }finally{ btn.disabled=false; }
+};
+$("bShowOnMap").onclick=()=>{ showView("v-map"); if(current) map.fitBounds(L.polygon(current.coords).getBounds(),{maxZoom:18,padding:[30,30]}); };
+
+/* ---------- start ---------- */
+refreshSel(); drawFields();
+if(fields.length) selectField(fields[0].id);
+</script>
+</body>
+</html>
