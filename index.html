@@ -39,7 +39,7 @@ main{flex:1;min-height:0;position:relative}
 .pad{padding:16px max(16px,env(safe-area-inset-left)) 24px max(16px,env(safe-area-inset-right));max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--leaf);color:var(--surface);font-weight:600;cursor:pointer}
+.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--leaf);color:var(--surface);font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
 .btn.small{padding:6px 10px;font-size:.9rem}
 .btn:disabled{opacity:.5;cursor:default}
@@ -92,7 +92,14 @@ td:first-child,th:first-child{text-align:start}
       <div class="row" id="drawIdle">
         <button class="btn" id="bDraw">✏️ ارسم أرض جديدة</button>
         <button class="btn ghost" id="bLocate">📍 موقعي</button>
+        <button class="btn ghost" id="bGmaps">🔗 من جوجل ماب</button>
         <button class="btn ghost" id="bDelete" hidden>🗑️ امسح الأرض دي</button>
+        <a class="btn ghost" id="aGmaps" hidden target="_blank" rel="noopener">🗺️ افتح في جوجل ماب</a>
+      </div>
+      <div id="gmBox" hidden>
+        <div class="row"><input type="text" id="gmIn" dir="ltr" placeholder="الصق لينك جوجل ماب أو 25.6872, 32.6396" style="flex:1;min-width:0">
+        <button class="btn" id="gmGo">روح</button></div>
+        <p class="hint">في جوجل ماب: دوس ضغطة طويلة على أرضك ← هتظهر الإحداثيات فوق ← انسخها والصقها هنا. أو «مشاركة» ← «نسخ الرابط».</p>
       </div>
       <div class="row" id="drawOn" hidden>
         <button class="btn" id="bFinish">✔️ خلصت</button>
@@ -343,6 +350,46 @@ map.on("click", e => {
 function updDrawHint(){ const k=drawing.pts.length; $("mapHint").textContent = k<3 ? `المس ركن الأرض (${fmt(k,0)} نقطة لحد دلوقتي).` : `المساحة تقريباً ${fmt(areaFeddan(drawing.pts),2)} فدان. كمّل الأركان أو اضغط «خلصت».`; }
 function endDraw(){ if(drawing){ map.removeLayer(drawing.layer); drawing.marks.forEach(m=>map.removeLayer(m)); } drawing=null; toggleDraw(false); }
 function toggleDraw(on){ $("drawIdle").hidden=on; $("drawOn").hidden=!on; map.getContainer().style.cursor=on?"crosshair":""; if(on) $("mapHint").textContent="المس أول ركن في الأرض."; else $("mapHint").textContent = current?`${current.name}: ${fmt(areaFeddan(current.coords),2)} فدان. اختار «صحة الزرع» أو «الجو» أو «الري» من تحت.`:"قرّب على أرضك، واضغط «ارسم أرض جديدة»، وبعدين المس أركان الأرض واحد واحد."; }
+/* ---------- location from Google Maps ---------- */
+function parseLatLon(t){
+  t=(t||"").trim().replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/٫/g,".").replace(/،/g,",");
+  try{ t=decodeURIComponent(t); }catch(_){}
+  const ok=(a,b)=>{ a=+a; b=+b; return (isFinite(a)&&isFinite(b)&&Math.abs(a)<=90&&Math.abs(b)<=180)?[a,b]:null; };
+  let m;
+  if((m=t.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/))) return ok(m[1],m[2]);
+  if((m=t.match(/[?&](?:q|query|ll|center|destination)=(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/))) return ok(m[1],m[2]);
+  if((m=t.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) return ok(m[1],m[2]);
+  if((m=t.match(/(\d+)°\s*(\d+)'\s*([\d.]+)"?\s*([NS])[\s,]+(\d+)°\s*(\d+)'\s*([\d.]+)"?\s*([EW])/i))){
+    const dd=(d,mi,se,h)=>(+d + +mi/60 + +se/3600)*(/[SW]/i.test(h)?-1:1);
+    return ok(dd(m[1],m[2],m[3],m[4]), dd(m[5],m[6],m[7],m[8]));
+  }
+  if((m=t.match(/(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/))) return ok(m[1],m[2]);
+  return null;
+}
+let gmMarker=null;
+$("bGmaps").onclick=()=>{ $("gmBox").hidden=!$("gmBox").hidden; if(!$("gmBox").hidden) $("gmIn").focus(); };
+$("gmGo").onclick=()=>{
+  const v=$("gmIn").value, ll=parseLatLon(v);
+  if(!ll){
+    $("mapHint").textContent = /goo\.gl|maps\.app/.test(v)
+      ? "اللينك المختصر ده مش بيبيّن الإحداثيات. افتحه في جوجل ماب، ودوس ضغطة طويلة على الأرض، وانسخ الأرقام اللي فوق (زي 25.6872, 32.6396)."
+      : "مش لاقي إحداثيات في النص ده. الصق أرقام زي 25.6872, 32.6396 أو لينك جوجل ماب كامل.";
+    return;
+  }
+  map.setView(ll,17);
+  if(gmMarker) map.removeLayer(gmMarker);
+  gmMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#e53935",fillOpacity:1}).addTo(map);
+  $("gmBox").hidden=true;
+  $("mapHint").textContent=`وصلنا (${ll[0].toFixed(5)}, ${ll[1].toFixed(5)}). اضغط «ارسم أرض جديدة» وارسم حدود أرضك حوالين النقطة الحمرا.`;
+};
+$("gmIn").addEventListener("keydown",e=>{ if(e.key==="Enter") $("gmGo").click(); });
+function updGmapsLink(){
+  const a=$("aGmaps"); if(!a) return;
+  if(!current){ a.hidden=true; return; }
+  const [lat,lon]=centroid(current.coords);
+  a.href=`https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`; a.hidden=false;
+}
+
 $("bLocate").onclick = () => {
   if(!navigator.geolocation){ $("mapHint").textContent="الموبايل مش بيدعم تحديد الموقع."; return; }
   $("mapHint").textContent="بنحدد موقعك…";
@@ -360,7 +407,7 @@ function refreshSel(){
   const s=$("fieldSel");
   s.innerHTML = fields.length ? fields.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("") : `<option value="">لسه مفيش أرض. ارسم واحدة</option>`;
   if (current) s.value=current.id;
-  $("bDelete").hidden=!current;
+  $("bDelete").hidden=!current; updGmapsLink();
 }
 $("fieldSel").onchange = e => e.target.value && selectField(e.target.value);
 function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
