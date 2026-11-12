@@ -47,7 +47,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .maptools{padding:10px max(16px,env(safe-area-inset-left)) 10px max(16px,env(safe-area-inset-right));background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
 .hint{color:var(--muted);font-size:.9rem}
 .err{color:var(--bad)}
-nav{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{border:0;background:none;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.8rem;color:var(--muted);cursor:pointer}
 nav button .ic{font-size:1.25rem;line-height:1}
 nav button[aria-selected="true"]{color:var(--leaf);font-weight:600}
@@ -127,7 +127,18 @@ td:first-child,th:first-child{text-align:start}
       </div>
     </div>
     <div class="panel">
-      <h2>رطوبة التربة</h2>
+      <h2>رطوبة سطح التربة من الرادار (مجاناً)</h2>
+      <p class="hint">من القمر الصناعي Sentinel-1 لأرضك بالظبط. بيوضح هل السطح أنشف ولا أرطب من المعتاد. صورة كل ٦–١٢ يوم.</p>
+      <div class="row"><button class="btn" id="bS1">📡 احسب من الرادار</button></div>
+      <p class="hint" id="s1Status" aria-live="polite"></p>
+      <div id="s1Out"></div>
+      <div class="row">
+        <label class="f" for="s1Cal">قراءتك أنت (٪ مية حجماً)<input id="s1Cal" type="number" min="0" max="60" step="1" inputmode="decimal" style="width:120px"></label>
+        <button class="btn ghost small" id="bS1Cal">عاير على قراءتي</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>رطوبة التربة (نموذج الطقس)</h2>
       <p class="hint">تقدير من نموذج الطقس لموقع الأرض (مش قياس في الحقل). استخدمه كمؤشر، وتأكد بإيدك أو بحساس رطوبة.</p>
       <div id="soilOut"><p class="empty">اختار أرض عشان تظهر الرطوبة.</p></div>
     </div>
@@ -165,6 +176,31 @@ td:first-child,th:first-child{text-align:start}
     </div>
     <div class="panel"><h2>كمية الري لكل يوم</h2><div class="tablewrap" id="irrTable"><p class="empty">اختار أرض عشان نجيب الجو ونحسب.</p></div><p id="irrSum"></p></div>
   </div></section>
+
+  <!-- 7. DAILY LOG -->
+  <section class="view" id="v-log"><div class="pad">
+    <div class="panel">
+      <h2>السجل اليومي</h2>
+      <p class="hint">بيانات كل يوم للأرض المختارة: الجو، التبخر ET0، احتياج الري، رطوبة التربة، ومؤشر الخضرة من كل صورة قمر صناعي صافية. تقدر تنزّلها Excel.</p>
+      <div class="row">
+        <label class="f" for="logDays">المدة<select id="logDays"><option value="7">آخر ٧ أيام</option><option value="30" selected>آخر ٣٠ يوم</option><option value="60">آخر ٦٠ يوم</option><option value="92">آخر ٩٠ يوم</option></select></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="bLog">📥 جيب البيانات</button>
+        <button class="btn ghost" id="bLogNdvi" disabled>🛰️ سجل الخضرة</button>
+        <button class="btn ghost" id="bCsv" disabled>⬇️ تنزيل Excel</button>
+      </div>
+      <p class="hint" id="logStatus" aria-live="polite"></p>
+      <div id="logChart"></div>
+      <div class="tablewrap" id="logTable"></div>
+    </div>
+    <div class="panel">
+      <h3>حفظ تلقائي كل يوم</h3>
+      <p class="hint">GitHub بيشغّل برنامج صغير كل يوم الساعة ٦ الصبح، يسجل بيانات كل أراضيك في ملفات في المستودع حتى لو التطبيق مقفول. انسخ أراضيك وحطها في ملف fields.json.</p>
+      <button class="btn ghost small" id="bFields">📋 انسخ بيانات أراضيّ</button>
+      <textarea id="fieldsJson" hidden rows="5" style="width:100%;font-family:monospace;font-size:.8rem;direction:ltr" readonly></textarea>
+    </div>
+  </div></section>
 </main>
 
 <nav role="tablist">
@@ -172,6 +208,7 @@ td:first-child,th:first-child{text-align:start}
   <button role="tab" aria-selected="false" data-v="v-health"><span class="ic">🌱</span>صحة الزرع</button>
   <button role="tab" aria-selected="false" data-v="v-weather"><span class="ic">🌤️</span>الجو</button>
   <button role="tab" aria-selected="false" data-v="v-irr"><span class="ic">💧</span>الري</button>
+  <button role="tab" aria-selected="false" data-v="v-log"><span class="ic">📒</span>السجل</button>
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -454,66 +491,237 @@ async function readWindow(href, bbox){ // bbox in image CRS [minx,miny,maxx,maxy
 }
 function bandScale(asset){ const b=asset&&asset["raster:bands"]&&asset["raster:bands"][0]; return {s:(b&&b.scale)||0.0001, o:(b&&b.offset)||0}; }
 
+async function searchScenes(f, days, limit, maxCloud){
+  const ring=f.coords.map(([la,ln])=>[ln,la]); ring.push(ring[0]);
+  const to=new Date(), from=new Date(to-days*864e5);
+  const r=await fetch("https://earth-search.aws.element84.com/v1/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    collections:["sentinel-2-l2a"], intersects:{type:"Polygon",coordinates:[ring]}, datetime:from.toISOString()+"/"+to.toISOString(),
+    query:{"eo:cloud_cover":{"lt":maxCloud}}, sortby:[{field:"properties.datetime",direction:"desc"}], limit})});
+  if(!r.ok) throw new Error("stac "+r.status);
+  return (await r.json()).features||[];
+}
+// Returns null when the field is cloudy in this scene.
+async function ndviScene(it, f, withImage){
+  const epsg=it.properties["proj:epsg"]; if(!epsg) return null;
+  const zone=epsg%100, south=Math.floor(epsg/100)===327;
+  const pj=proj4("EPSG:4326",`+proj=utm +zone=${zone} ${south?"+south ":""}+datum=WGS84 +units=m +no_defs`);
+  const polyU=f.coords.map(([la,ln])=>pj.forward([ln,la]));
+  const xs=polyU.map(p=>p[0]), ys=polyU.map(p=>p[1]);
+  const bbox=[Math.min(...xs)-20,Math.min(...ys)-20,Math.max(...xs)+20,Math.max(...ys)+20];
+  const [red,nir,scl]=await Promise.all([readWindow(it.assets.red.href,bbox),readWindow(it.assets.nir.href,bbox),it.assets.scl?readWindow(it.assets.scl.href,bbox).catch(()=>null):null]);
+  const rs=bandScale(it.assets.red), ns=bandScale(it.assets.nir);
+  const w=Math.min(red.w,nir.w), h=Math.min(red.h,nir.h);
+  let cv=null, cx=null, id=null;
+  if(withImage){ cv=document.createElement("canvas"); cv.width=w; cv.height=h; cx=cv.getContext("2d"); id=cx.createImageData(w,h); }
+  let n=0,sum=0,weak=0,cloudy=0,vals=[];
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const px=red.ox+(x+0.5)*red.rx, py=red.oy+(y+0.5)*red.ry;
+    if(!pip(px,py,polyU)) continue;
+    const R=red.data[y*red.w+x], N=nir.data[y*nir.w+x]; if(!R||!N) continue;
+    if(scl){ const sx=Math.floor((px-scl.ox)/scl.rx), sy=Math.floor((py-scl.oy)/scl.ry); const c=(sx>=0&&sy>=0&&sx<scl.w&&sy<scl.h)?scl.data[sy*scl.w+sx]:0; if([3,8,9,10,11].includes(c)){ cloudy++; continue; } }
+    const rr=R*rs.s+rs.o, nn=N*ns.s+ns.o; const v=(nn-rr)/(nn+rr||1);
+    n++; sum+=v; vals.push(v); if(v<0.35) weak++;
+    if(id){ const [cr,cg,cb]=ndviColor(v), k=(y*w+x)*4; id.data[k]=cr; id.data[k+1]=cg; id.data[k+2]=cb; id.data[k+3]=200; }
+  }
+  if(n===0 || cloudy>n) return null;
+  vals.sort((a,b)=>a-b);
+  const out={date:it.properties.datetime.slice(0,10), mean:sum/n, weak:weak/n, n, cloudy:cloudy/(n+cloudy), min:vals[Math.floor(n*0.05)], max:vals[Math.floor(n*0.95)]};
+  if(cv){ cx.putImageData(id,0,0); const inv=c=>{ const [ln,la]=pj.inverse(c); return [la,ln]; };
+    out.url=cv.toDataURL(); out.sw=inv([red.ox, red.oy+h*red.ry]); out.ne=inv([red.ox+w*red.rx, red.oy]); }
+  return out;
+}
+const ndviErr = e => e.message==="noitems"?"مفيش صور بدون سحب في الفترة دي.": e.message==="cloudy"?"كل الصور الأخيرة فيها سحب على الأرض. جرّب بعد كام يوم.":
+  e.message==="outside"?"الأرض برا حدود الصورة. جرّب تاني.":"مقدرناش نحمّل صورة القمر الصناعي. اتأكد من الإنترنت وجرّب تاني.";
+
 $("bNdvi").onclick = async () => {
   if(!current){ $("ndviStatus").textContent="اختار أرض الأول من الخريطة."; return; }
   const btn=$("bNdvi"); btn.disabled=true; clearNdvi();
   const st=t=>$("ndviStatus").textContent=t;
   try{
     st("بندوّر على أحدث صورة بدون سحب…");
-    const ring=current.coords.map(([la,ln])=>[ln,la]); ring.push(ring[0]);
-    const to=new Date(), from=new Date(to-60*864e5);
-    const r=await fetch("https://earth-search.aws.element84.com/v1/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-      collections:["sentinel-2-l2a"], intersects:{type:"Polygon",coordinates:[ring]}, datetime:from.toISOString()+"/"+to.toISOString(),
-      query:{"eo:cloud_cover":{"lt":40}}, sortby:[{field:"properties.datetime",direction:"desc"}], limit:8})});
-    if(!r.ok) throw new Error("stac "+r.status);
-    const items=(await r.json()).features||[];
+    const items=await searchScenes(current,60,8,40);
     if(!items.length) throw new Error("noitems");
     for(const it of items.slice(0,4)){
-      const epsg=it.properties["proj:epsg"]; if(!epsg) continue;
-      const zone=epsg%100, south=Math.floor(epsg/100)===327;
-      const pj=proj4("EPSG:4326",`+proj=utm +zone=${zone} ${south?"+south ":""}+datum=WGS84 +units=m +no_defs`);
-      const polyU=current.coords.map(([la,ln])=>pj.forward([ln,la]));
-      const xs=polyU.map(p=>p[0]), ys=polyU.map(p=>p[1]);
-      const bbox=[Math.min(...xs)-20,Math.min(...ys)-20,Math.max(...xs)+20,Math.max(...ys)+20];
       st(`بنحمّل صورة ${it.properties.datetime.slice(0,10)}…`);
-      const [red,nir,scl]=await Promise.all([readWindow(it.assets.red.href,bbox),readWindow(it.assets.nir.href,bbox),it.assets.scl?readWindow(it.assets.scl.href,bbox).catch(()=>null):null]);
-      const rs=bandScale(it.assets.red), ns=bandScale(it.assets.nir);
-      const w=Math.min(red.w,nir.w), h=Math.min(red.h,nir.h);
-      const cv=document.createElement("canvas"); cv.width=w; cv.height=h; const cx=cv.getContext("2d"); const id=cx.createImageData(w,h);
-      let n=0,sum=0,weak=0,cloudy=0;
-      for(let y=0;y<h;y++) for(let x=0;x<w;x++){
-        const px=red.ox+(x+0.5)*red.rx, py=red.oy+(y+0.5)*red.ry;
-        if(!pip(px,py,polyU)) continue;
-        const R=red.data[y*red.w+x], N=nir.data[y*nir.w+x]; if(!R||!N) continue;
-        if(scl){ const sx=Math.floor((px-scl.ox)/scl.rx), sy=Math.floor((py-scl.oy)/scl.ry); const c=(sx>=0&&sy>=0&&sx<scl.w&&sy<scl.h)?scl.data[sy*scl.w+sx]:0; if([3,8,9,10,11].includes(c)){ cloudy++; continue; } }
-        const rr=R*rs.s+rs.o, nn=N*ns.s+ns.o; const v=(nn-rr)/(nn+rr||1);
-        n++; sum+=v; if(v<0.35) weak++;
-        const [cr,cg,cb]=ndviColor(v), k=(y*w+x)*4; id.data[k]=cr; id.data[k+1]=cg; id.data[k+2]=cb; id.data[k+3]=200;
-      }
-      if(n===0 || cloudy>n){ st("الصورة دي فيها سحب على الأرض، بنجرب اللي قبلها…"); continue; }
-      cx.putImageData(id,0,0);
-      const inv=c=>{ const [ln,la]=pj.inverse(c); return [la,ln]; };
-      const sw=inv([red.ox, red.oy+h*red.ry]), ne=inv([red.ox+w*red.rx, red.oy]);
-      ndviOverlay=L.imageOverlay(cv.toDataURL(),[sw,ne],{opacity:.85,interactive:false});
-      ndviOverlay.getElement && null;
-      ndviOverlay.addTo(map); if(ndviOverlay.getElement()) ndviOverlay.getElement().style.imageRendering="pixelated";
+      const s=await ndviScene(it,current,true);
+      if(!s){ st("الصورة دي فيها سحب على الأرض، بنجرب اللي قبلها…"); continue; }
+      ndviOverlay=L.imageOverlay(s.url,[s.sw,s.ne],{opacity:.85,interactive:false}).addTo(map);
+      if(ndviOverlay.getElement()) ndviOverlay.getElement().style.imageRendering="pixelated";
       drawFields();
-      const mean=sum/n, wp=weak/n;
-      $("nMean").textContent=fmt(mean,2); $("nWeak").textContent=fmt(wp*100,0)+"٪"; $("nDate").textContent=new Date(it.properties.datetime).toLocaleDateString("ar-EG",{day:"numeric",month:"short"});
-      $("nVerdict").textContent = mean<0.2?"الأرض شبه فاضية أو الزرع لسه صغير جداً (أو بعد الحصاد).":
-        wp>0.3?`فيه حوالي ${fmt(wp*100,0)}٪ من الأرض ضعيف. روح للأماكن الحمرا والبرتقالي وصوّرها في «طبيب الزرع»، وافحص الري والنقاطات هناك.`:
-        mean<0.5?"الزرع متوسط. لو المحصول في ذروة النمو، راجع التسميد والري.":"الزرع في حالة كويسة ومتجانس.";
-      $("ndviOut").hidden=false; st(`عدد النقط المحللة: ${fmt(n,0)} (كل نقطة ١٠×١٠ متر).`);
-      btn.disabled=false; return;
+      $("nMean").textContent=fmt(s.mean,2); $("nWeak").textContent=fmt(s.weak*100,0)+"٪"; $("nDate").textContent=new Date(s.date+"T12:00").toLocaleDateString("ar-EG",{day:"numeric",month:"short"});
+      $("nVerdict").textContent = s.mean<0.2?"الأرض شبه فاضية أو الزرع لسه صغير جداً (أو بعد الحصاد).":
+        s.weak>0.3?`فيه حوالي ${fmt(s.weak*100,0)}٪ من الأرض ضعيف. روح للأماكن الحمرا والبرتقالي وصوّرها في «طبيب الزرع»، وافحص الري والنقاطات هناك.`:
+        s.mean<0.5?"الزرع متوسط. لو المحصول في ذروة النمو، راجع التسميد والري.":"الزرع في حالة كويسة ومتجانس.";
+      $("ndviOut").hidden=false; st(`عدد النقط المحللة: ${fmt(s.n,0)} (كل نقطة ١٠×١٠ متر).`);
+      return;
     }
     throw new Error("cloudy");
+  }catch(e){ $("ndviStatus").innerHTML=`<span class="err">${ndviErr(e)}</span>`; console.error(e); }
+  finally{ btn.disabled=false; }
+};
+
+/* ---------- DAILY LOG ---------- */
+let logRows=[], ndviRows=[];
+function dailySoil(H, day, key){ const v=H.time.map((t,j)=>t.startsWith(day)?H[key][j]:null).filter(x=>x!=null); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; }
+$("bLog").onclick = async () => {
+  if(!current){ $("logStatus").textContent="اختار أرض الأول."; return; }
+  const days=+$("logDays").value, btn=$("bLog"); btn.disabled=true;
+  $("logStatus").textContent="بنجيب بيانات كل يوم…";
+  const [lat,lon]=centroid(current.coords);
+  const url="https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+
+    "&hourly=soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm"+
+    "&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,relative_humidity_2m_max,relative_humidity_2m_min,precipitation_sum,wind_speed_10m_max,shortwave_radiation_sum,et0_fao_evapotranspiration"+
+    "&timezone=auto&past_days="+days+"&forecast_days=1";
+  try{
+    const r=await fetch(url); if(!r.ok) throw new Error(r.status); const j=await r.json(), d=j.daily, H=j.hourly;
+    const c=CROPS[$("iCrop").value], o={kc:kcFor(c,$("iStage").value), eff:+$("iSys").value, ece:c.ece, ec:+$("iEC").value||0, plants:+$("iPlants").value||0, emit:+$("iEmit").value||0, flow:+$("iFlow").value||0};
+    logRows=d.time.map((t,i)=>{ const irr=calcDay(d.et0_fao_evapotranspiration[i]||0, d.precipitation_sum[i]||0, o);
+      return {date:t,tmax:d.temperature_2m_max[i],tmin:d.temperature_2m_min[i],rh:d.relative_humidity_2m_mean?d.relative_humidity_2m_mean[i]:null,rhmax:(d.relative_humidity_2m_max||[])[i],rhmin:(d.relative_humidity_2m_min||[])[i],
+        rain:d.precipitation_sum[i],wind:d.wind_speed_10m_max[i],rad:(d.shortwave_radiation_sum||[])[i],et0:d.et0_fao_evapotranspiration[i],etc:irr.etc,m3:irr.m3,hrs:irr.hrs,
+        sm1:dailySoil(H,t,"soil_moisture_3_to_9cm"),sm2:dailySoil(H,t,"soil_moisture_9_to_27cm"),sm3:dailySoil(H,t,"soil_moisture_27_to_81cm"),ndvi:null}; }).reverse();
+    mergeNdvi(); renderLog();
+    $("logStatus").textContent=`${fmt(logRows.length,0)} يوم. اضغط «سجل الخضرة» عشان نضيف قراءة القمر الصناعي لكل صورة صافية.`;
+    $("bLogNdvi").disabled=false; $("bCsv").disabled=false;
+  }catch(e){ $("logStatus").innerHTML=`<span class="err">مقدرناش نجيب البيانات. اتأكد من الإنترنت.</span>`; console.error(e); }
+  finally{ btn.disabled=false; }
+};
+$("bLogNdvi").onclick = async () => {
+  if(!current) return;
+  const days=+$("logDays").value, btn=$("bLogNdvi"); btn.disabled=true;
+  try{
+    $("logStatus").textContent="بندوّر على صور القمر الصناعي…";
+    const items=await searchScenes(current,days,40,60);
+    if(!items.length) throw new Error("noitems");
+    const seen=new Set(); ndviRows=[];
+    for(let i=0;i<items.length;i++){
+      const day=items[i].properties.datetime.slice(0,10); if(seen.has(day)) continue; seen.add(day);
+      $("logStatus").textContent=`بنحلل صورة ${fmt(i+1,0)} من ${fmt(items.length,0)} (${day})…`;
+      try{ const s=await ndviScene(items[i],current,false); if(s) ndviRows.push(s); }catch(e){ console.warn(e); }
+    }
+    mergeNdvi(); renderLog();
+    $("logStatus").textContent=`لقينا ${fmt(ndviRows.length,0)} صورة صافية في الفترة دي.`;
+  }catch(e){ $("logStatus").innerHTML=`<span class="err">${ndviErr(e)}</span>`; }
+  finally{ btn.disabled=false; }
+};
+function mergeNdvi(){ const m=Object.fromEntries(ndviRows.map(s=>[s.date,s])), r1=Object.fromEntries(s1Rows.map(s=>[s.date,s])); logRows.forEach(r=>{ r.ndvi=m[r.date]||null; r.s1=r1[r.date]||null; }); }
+function renderLog(){
+  const pct=v=>v==null?"–":fmt(v*100,0);
+  let h=`<table><thead><tr><th>اليوم</th><th>العظمى°</th><th>الصغرى°</th><th>رطوبة٪</th><th>مطر مم</th><th>رياح</th><th>ET0 مم</th><th>احتياج مم</th><th>م³/فدان</th><th>رطوبة تربة ٣–٩</th><th>٩–٢٧</th><th>٢٧–٨١</th><th>NDVI</th><th>ضعيف٪</th><th>رادار٪</th></tr></thead><tbody>`;
+  logRows.forEach(r=>{ h+=`<tr><td>${dayShort(r.date)}</td><td>${fmt(r.tmax,1)}</td><td>${fmt(r.tmin,1)}</td><td>${fmt(r.rh!=null?r.rh:(r.rhmax+r.rhmin)/2,0)}</td><td>${fmt(r.rain,1)}</td><td>${fmt(r.wind,0)}</td><td>${fmt(r.et0,1)}</td><td>${fmt(r.etc,1)}</td><td>${fmt(r.m3,0)}</td><td>${pct(r.sm1)}</td><td>${pct(r.sm2)}</td><td>${pct(r.sm3)}</td><td>${r.ndvi?`<b>${fmt(r.ndvi.mean,2)}</b>`:""}</td><td>${r.ndvi?fmt(r.ndvi.weak*100,0):""}</td><td>${r.s1?fmt(r.s1.rel*100,0):""}</td></tr>`; });
+  $("logTable").innerHTML=h+"</tbody></table>";
+  renderChart();
+}
+function renderChart(){
+  const rows=[...logRows].reverse(); if(rows.length<2){ $("logChart").innerHTML=""; return; }
+  const W=640,Hh=220,P={l:44,r:40,t:14,b:30}, n=rows.length;
+  const X=i=>P.l+(W-P.l-P.r)*i/(n-1);
+  const et=rows.map(r=>r.et0||0), mx=Math.max(8,...et);
+  const Ye=v=>Hh-P.b-(Hh-P.t-P.b)*v/mx, Yn=v=>Hh-P.b-(Hh-P.t-P.b)*Math.max(0,v);
+  let s=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="رسم ET0 والخضرة" style="direction:ltr">`;
+  for(let g=0;g<=4;g++){ const y=P.t+(Hh-P.t-P.b)*g/4; s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="var(--line)"/>`; s+=`<text x="${P.l-4}" y="${y+4}" font-size="16" text-anchor="end" fill="var(--sky)">${(mx*(1-g/4)).toFixed(0)}</text><text x="${W-P.r+2}" y="${y+4}" font-size="16" fill="var(--leaf)">${(1-g/4).toFixed(1)}</text>`; }
+  s+=`<polyline fill="none" stroke="var(--sky)" stroke-width="2" points="${rows.map((r,i)=>X(i)+","+Ye(r.et0||0)).join(" ")}"/>`;
+  const nd=rows.map((r,i)=>r.ndvi?[X(i),Yn(r.ndvi.mean)]:null).filter(Boolean);
+  if(nd.length){ s+=`<polyline fill="none" stroke="var(--leaf)" stroke-width="2.5" points="${nd.map(p=>p.join(",")).join(" ")}"/>`; nd.forEach(p=>s+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--leaf)"/>`); }
+  [0,Math.floor((n-1)/2),n-1].forEach(i=>s+=`<text x="${X(i)}" y="${Hh-6}" font-size="16" text-anchor="middle" fill="var(--muted)">${rows[i].date.slice(5)}</text>`);
+  $("logChart").innerHTML=s+`</svg><div class="legend"><span><i style="background:var(--sky)"></i>ET0 (مم/يوم) على الشمال</span><span><i style="background:var(--leaf)"></i>NDVI على اليمين</span></div>`;
+}
+$("bCsv").onclick = () => {
+  if(!logRows.length) return;
+  const head=["date","tmax_c","tmin_c","rh_mean_pct","rain_mm","wind_max_kmh","radiation_MJm2","et0_mm","etc_mm","irrigation_m3_per_feddan","drip_hours","soil_moist_3_9cm","soil_moist_9_27cm","soil_moist_27_81cm","ndvi_mean","ndvi_p5","ndvi_p95","weak_area_pct","radar_surface_wetness_pct","radar_vv_db"];
+  const v=x=>x==null||isNaN(x)?"":(+x).toFixed(3).replace(/\.?0+$/,"");
+  const lines=[head.join(",")].concat([...logRows].reverse().map(r=>[r.date,v(r.tmax),v(r.tmin),v(r.rh!=null?r.rh:(r.rhmax+r.rhmin)/2),v(r.rain),v(r.wind),v(r.rad),v(r.et0),v(r.etc),v(r.m3),v(r.hrs),v(r.sm1),v(r.sm2),v(r.sm3),r.ndvi?v(r.ndvi.mean):"",r.ndvi?v(r.ndvi.min):"",r.ndvi?v(r.ndvi.max):"",r.ndvi?v(r.ndvi.weak*100):"",r.s1?v(r.s1.rel*100):"",r.s1?v(r.s1.db):""].join(",")));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`${(current&&current.name)||"farm"}-daily-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+};
+$("bFields").onclick = async () => {
+  const json=JSON.stringify(fields.map(f=>({id:f.id,name:f.name,coords:f.coords,crop:f.crop,stage:f.stage||"mid",sys:+(f.sys||0.9),plants:f.plants||null,emit:f.emit||null,flow:f.flow||null,ec:f.ec||0})),null,1);
+  $("fieldsJson").value=json; $("fieldsJson").hidden=false;
+  try{ await navigator.clipboard.writeText(json); $("logStatus").textContent="اتنسخ. افتح ملف fields.json في GitHub والصقه مكان القديم."; }catch(_){ $("fieldsJson").select(); $("logStatus").textContent="انسخ النص اللي ظهر تحت."; }
+};
+
+$("bShowOnMap").onclick=()=>{ showView("v-map"); if(current) map.fitBounds(L.polygon(current.coords).getBounds(),{maxZoom:18,padding:[30,30]}); };
+
+
+/* ---------- RADAR SOIL MOISTURE (Sentinel-1 RTC, Microsoft Planetary Computer, free) ---------- */
+let s1Rows=[];
+const PC="https://planetarycomputer.microsoft.com/api";
+async function s1Series(f, days, onStep){
+  const tk=await (await fetch(PC+"/sas/v1/token/sentinel-1-rtc")).json();
+  const ring=f.coords.map(([la,ln])=>[ln,la]); ring.push(ring[0]);
+  const to=new Date(), from=new Date(to-days*864e5);
+  const r=await fetch(PC+"/stac/v1/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    collections:["sentinel-1-rtc"], intersects:{type:"Polygon",coordinates:[ring]}, datetime:from.toISOString()+"/"+to.toISOString(),
+    sortby:[{field:"properties.datetime",direction:"desc"}], limit:60})});
+  if(!r.ok) throw new Error("s1stac "+r.status);
+  let items=(await r.json()).features||[];
+  if(!items.length) throw new Error("noitems");
+  // keep one viewing geometry (the most common relative orbit) so readings are comparable
+  const cnt={}; items.forEach(it=>{ const k=it.properties["sat:relative_orbit"]; cnt[k]=(cnt[k]||0)+1; });
+  const orbit=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+  items=items.filter(it=>String(it.properties["sat:relative_orbit"])===orbit);
+  const out=[];
+  for(let i=0;i<items.length;i++){
+    const it=items[i]; onStep && onStep(i+1, items.length);
+    try{
+      const epsg=it.properties["proj:epsg"], zone=epsg%100, south=Math.floor(epsg/100)===327;
+      const pj=proj4("EPSG:4326",`+proj=utm +zone=${zone} ${south?"+south ":""}+datum=WGS84 +units=m +no_defs`);
+      const poly=f.coords.map(([la,ln])=>pj.forward([ln,la])), xs=poly.map(p=>p[0]), ys=poly.map(p=>p[1]);
+      const bbox=[Math.min(...xs)-20,Math.min(...ys)-20,Math.max(...xs)+20,Math.max(...ys)+20];
+      const vv=await readWindow(it.assets.vv.href+"?"+tk.token, bbox);
+      let n=0,sum=0;
+      for(let y=0;y<vv.h;y++) for(let x=0;x<vv.w;x++){
+        const px=vv.ox+(x+0.5)*vv.rx, py=vv.oy+(y+0.5)*vv.ry; if(!pip(px,py,poly)) continue;
+        const v=vv.data[y*vv.w+x]; if(!(v>0) || !isFinite(v)) continue; n++; sum+=10*Math.log10(v);
+      }
+      if(n) out.push({date:it.properties.datetime.slice(0,10), db:sum/n, n});
+    }catch(e){ console.warn("s1 scene", e); }
+  }
+  if(out.length<3) throw new Error("few");
+  // change detection: driest (5th pct) and wettest (95th pct) backscatter of this field over the period
+  const sorted=out.map(o=>o.db).sort((a,b)=>a-b);
+  const dry=sorted[Math.floor((sorted.length-1)*0.05)], wet=sorted[Math.ceil((sorted.length-1)*0.95)];
+  out.forEach(o=>{ o.rel=Math.max(0,Math.min(1,(o.db-dry)/((wet-dry)||1))); });
+  return out.sort((a,b)=>a.date<b.date?-1:1);
+}
+function s1Vol(rel, f){ const s=SOILS[f.soil]||SOILS.clay; const sat=Math.min(0.55,s.fc+0.12); return s.wp*0.6 + rel*(sat - s.wp*0.6) + (f.s1off||0); }
+$("bS1").onclick = async () => {
+  if(!current){ $("s1Status").textContent="اختار أرض الأول."; return; }
+  const btn=$("bS1"); btn.disabled=true; $("s1Status").textContent="بنجيب صور الرادار لآخر ٤ شهور…";
+  try{
+    s1Rows=await s1Series(current,120,(i,n)=>$("s1Status").textContent=`بنحلل صورة رادار ${fmt(i,0)} من ${fmt(n,0)}…`);
+    $("s1Status").textContent=""; renderS1(); if(logRows.length){ mergeNdvi(); renderLog(); }
   }catch(e){
-    const msg = e.message==="noitems"?"مفيش صور في آخر ٦٠ يوم بدون سحب.": e.message==="cloudy"?"كل الصور الأخيرة فيها سحب على الأرض. جرّب بعد كام يوم.":
-      e.message==="outside"?"الأرض برا حدود الصورة. جرّب تاني.":"مقدرناش نحمّل صورة القمر الصناعي. اتأكد من الإنترنت وجرّب تاني.";
-    $("ndviStatus").innerHTML=`<span class="err">${msg}</span>`; console.error(e);
+    const m=e.message==="noitems"?"مفيش صور رادار للمكان ده في الفترة دي.":e.message==="few"?"عدد صور الرادار قليل جداً عشان نحسب. جرّب بعد كام أسبوع.":"مقدرناش نوصل لخدمة الرادار. اتأكد من الإنترنت وجرّب تاني.";
+    $("s1Status").innerHTML=`<span class="err">${m}</span>`; console.error(e);
   }finally{ btn.disabled=false; }
 };
-$("bShowOnMap").onclick=()=>{ showView("v-map"); if(current) map.fitBounds(L.polygon(current.coords).getBounds(),{maxZoom:18,padding:[30,30]}); };
+$("bS1Cal").onclick = () => {
+  const m=parseFloat($("s1Cal").value); if(!current||!s1Rows.length||isNaN(m)) return;
+  const last=s1Rows[s1Rows.length-1]; current.s1off=0; current.s1off=m/100 - s1Vol(last.rel,current); store.set(fields); renderS1();
+  $("s1Status").textContent="اتظبطت المعايرة على قراءتك. القراءات الجاية هتتعدل بنفس الفرق.";
+};
+function renderS1(){
+  if(!s1Rows.length) return;
+  const last=s1Rows[s1Rows.length-1], prev=s1Rows[s1Rows.length-2];
+  const rel=last.rel, vol=s1Vol(rel,current);
+  const [lbl,col]= rel<0.25?["سطح ناشف","var(--bad)"]: rel<0.5?["أنشف من المعتاد","var(--warn)"]: rel<0.8?["رطوبة معتادة","var(--ok)"]:["مبلول / بعد ري","var(--sky)"];
+  const trend = prev ? (last.rel-prev.rel>0.1?"⬆️ أرطب من الصورة اللي قبلها": last.rel-prev.rel<-0.1?"⬇️ أنشف من الصورة اللي قبلها":"➡️ زي الصورة اللي قبلها") : "";
+  const dense = (ndviRows.length && ndviRows[0].mean>0.6) || (current.crop==="banana"||current.crop==="maize");
+  const W=640,H=170,P=34, n=s1Rows.length, X=i=>P+(W-2*P)*i/Math.max(1,n-1), Y=v=>H-P-(H-2*P)*v;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="direction:ltr" role="img" aria-label="رطوبة السطح عبر الوقت"><line x1="${P}" x2="${W-P}" y1="${Y(0.5)}" y2="${Y(0.5)}" stroke="var(--line)" stroke-dasharray="4 4"/>`;
+  svg+=`<polyline fill="none" stroke="var(--sky)" stroke-width="2.5" points="${s1Rows.map((r,i)=>X(i)+","+Y(r.rel)).join(" ")}"/>`;
+  s1Rows.forEach((r,i)=>svg+=`<circle cx="${X(i)}" cy="${Y(r.rel)}" r="3" fill="var(--sky)"/>`);
+  [0,n-1].forEach(i=>svg+=`<text x="${X(i)}" y="${H-4}" font-size="18" text-anchor="middle" fill="var(--muted)">${s1Rows[i].date.slice(5)}</text>`);
+  svg+=`<text x="${P}" y="12" font-size="18" fill="var(--muted)">مبلول</text><text x="${P}" y="${H-P+12}" font-size="18" fill="var(--muted)">ناشف</text></svg>`;
+  $("s1Out").innerHTML=`<div class="stats">
+      <div class="stat"><b style="color:${col}">${fmt(rel*100,0)}٪</b><span>رطوبة السطح نسبةً لأنشف وأرطب حالة للأرض دي</span></div>
+      <div class="stat"><b>~${fmt(vol*100,0)}٪</b><span>تقدير مية في التربة (حجماً)${current.s1off?" · معاير":""}</span></div>
+      <div class="stat"><b>${new Date(last.date+"T12:00").toLocaleDateString("ar-EG",{day:"numeric",month:"short"})}</b><span>آخر صورة رادار</span></div>
+    </div>
+    <p><b style="color:${col}">${lbl}</b> ${trend}</p>${svg}
+    <p class="hint">الرادار بيقيس أول ٥ سم بس، بدقة ١٠–٢٠ متر، وبيشتغل من خلال السحاب. ${fmt(s1Rows.length,0)} صورة في آخر ٤ شهور.${dense?" <b>تنبيه:</b> الزرع كثيف (زي الموز أو الذرة الكبيرة) فالقراءة أقل دقة لأن الرادار بيشوف الورق أكتر من التربة.":""}</p>`;
+}
 
 /* ---------- start ---------- */
 refreshSel(); drawFields();
