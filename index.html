@@ -47,7 +47,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .maptools{padding:10px max(16px,env(safe-area-inset-left)) 10px max(16px,env(safe-area-inset-right));background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
 .hint{color:var(--muted);font-size:.9rem}
 .err{color:var(--bad)}
-nav{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav .navlink{padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.8rem;color:var(--muted);text-decoration:none}
+nav .navlink .ic{font-size:1.25rem;line-height:1}
+nav{display:grid;grid-template-columns:repeat(6,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{border:0;background:none;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.8rem;color:var(--muted);cursor:pointer}
 nav button .ic{font-size:1.25rem;line-height:1}
 nav button[aria-selected="true"]{color:var(--leaf);font-weight:600}
@@ -173,11 +175,9 @@ td:first-child,th:first-child{text-align:start}
       <p class="hint">أحسن وقت للرش: رياح أقل من ١٥ كم/س، حرارة أقل من ٣٠°، ومفيش مطر في الـ ٦ ساعات اللي بعدها.</p>
       <div id="sprayWin"></div>
     </div>
-    <div class="panel"><h2>ابعت الجو لطبيب الزرع</h2>
-      <p class="hint">انسخ ملخص الجو والرطوبة لأرضك، والصقه في «برنامجي» في طبيب الزرع، عشان البرنامج يتعدّل على الجو الحقيقي.</p>
-      <button class="btn" id="bWxCopy" disabled>📋 انسخ ملخص الجو</button>
-      <textarea id="wxCopyTxt" rows="6" hidden style="width:100%;margin-top:8px" readonly></textarea>
-      <p class="hint" id="wxCopyMsg"></p>
+    <div class="panel"><h2>🩺 طبيب الزرع</h2>
+      <p class="hint">صوّر الزرع أو التربة واعرف المشكلة وعلاجها، أو اعمل برنامج ري وتسميد ورش بيتعدّل على الجو الحقيقي لأرضك.</p>
+      <div class="row"><a class="btn" href="doctor.html">🔍 تشخيص صورة</a><a class="btn ghost" href="doctor.html#program">📅 برنامج لأرضي</a></div>
     </div>
   </div></section>
 
@@ -255,6 +255,7 @@ td:first-child,th:first-child{text-align:start}
   <button role="tab" aria-selected="false" data-v="v-weather"><span class="ic">🌤️</span>الجو</button>
   <button role="tab" aria-selected="false" data-v="v-irr"><span class="ic">💧</span>الري</button>
   <button role="tab" aria-selected="false" data-v="v-log"><span class="ic">📒</span>السجل</button>
+  <a class="navlink" href="doctor.html"><span class="ic">🩺</span>الطبيب</a>
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -439,7 +440,7 @@ async function loadWeather(){
   try{
     const r = await fetch(url); if(!r.ok) throw new Error(r.status);
     wx = await r.json();
-    renderWeather(); renderAlerts(); renderSoil(); renderIrr(); $("bWxCopy").disabled=false;
+    renderWeather(); renderAlerts(); renderSoil(); renderIrr();
   }catch(e){
     wx=null;
     const m=`<p class="err">مقدرناش نجيب الجو. اتأكد من الإنترنت وجرّب تاني.</p>`;
@@ -738,21 +739,6 @@ $("bFields").onclick = async () => {
   try{ await navigator.clipboard.writeText(json); $("logStatus").textContent="اتنسخ. افتح ملف fields.json في GitHub والصقه مكان القديم."; }catch(_){ $("fieldsJson").select(); $("logStatus").textContent="انسخ النص اللي ظهر تحت."; }
 };
 
-function wxSummary(){
-  const d=wx.daily, H=wx.hourly, [lat,lon]=centroid(current.coords), c=CROPS[current.crop];
-  const sm=(k)=>{ const i=H.time.findIndex(t=>t.slice(0,13)>=new Date().toISOString().slice(0,13)); const v=H[k]&&H[k][Math.max(0,i)]; return v==null?"؟":fmt(v*100,0)+"٪"; };
-  let t=`[جو أرضي] ${current.name} · ${fmt(areaFeddan(current.coords),2)} فدان · ${c?c.n:""}\nالموقع: ${lat.toFixed(4)}, ${lon.toFixed(4)} · اتنسخ ${new Date().toLocaleString("ar-EG")}\n`;
-  t+=`رطوبة التربة دلوقتي (موديل): ٣–٩ سم ${sm("soil_moisture_3_to_9cm")}، ٩–٢٧ سم ${sm("soil_moisture_9_to_27cm")}، ٢٧–٨١ سم ${sm("soil_moisture_27_to_81cm")}\n`;
-  t+=`اليوم | عظمى/صغرى° | رطوبة٪ | رياح كم/س | مطر مم | ET0 مم\n`;
-  d.time.forEach((x,i)=>{ t+=`${x} | ${fmt(d.temperature_2m_max[i],0)}/${fmt(d.temperature_2m_min[i],0)} | ${fmt(d.relative_humidity_2m_min[i],0)}–${fmt(d.relative_humidity_2m_max[i],0)} | ${fmt(d.wind_speed_10m_max[i],0)} | ${fmt(d.precipitation_sum[i]||0,1)} | ${fmt(d.et0_fao_evapotranspiration[i],1)}\n`; });
-  return t;
-}
-$("bWxCopy").onclick = async () => {
-  if(!wx||!current) return;
-  const t=wxSummary(); $("wxCopyTxt").value=t; $("wxCopyTxt").hidden=false;
-  try{ await navigator.clipboard.writeText(t); $("wxCopyMsg").textContent="اتنسخ. افتح طبيب الزرع ← برنامجي ← تحديث، والصقه في خانة الجو."; }
-  catch(_){ $("wxCopyTxt").select(); $("wxCopyMsg").textContent="انسخ النص اللي ظهر فوق."; }
-};
 
 function showOverlay(url){ if(!lastScene||!url) return; if(ndviOverlay) map.removeLayer(ndviOverlay); ndviOverlay=L.imageOverlay(url,[lastScene.sw,lastScene.ne],{opacity:.85,interactive:false}).addTo(map); if(ndviOverlay.getElement()) ndviOverlay.getElement().style.imageRendering="pixelated"; drawFields(); }
 $("bShowMoist").onclick=()=>{ showOverlay(lastScene&&lastScene.urlM); showView("v-map"); if(current) map.fitBounds(L.polygon(current.coords).getBounds(),{maxZoom:18,padding:[30,30]}); };

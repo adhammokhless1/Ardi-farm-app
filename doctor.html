@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>طبيب الزرع · أرضي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Noto+Kufi+Arabic:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow column like a phone app; photo first, the answer below as a field report */
+:root{
+  --bg:#f5f6f1; --surface:#ffffff; --fg:#1f2a1f; --muted:#5d6a5c; --line:#dfe3d6;
+  --leaf:#2f6b3a; --leaf-soft:#e4efe2; --soil:#8a5a32; --soil-soft:#f3e9df;
+  --ok:#2f7d43; --ok-bg:#e3f2e6; --warn:#a86a00; --warn-bg:#fbf0d9; --bad:#b3352b; --bad-bg:#fae3e0;
+  --display:"Noto Kufi Arabic","IBM Plex Sans Arabic",Tahoma,sans-serif;
+  --body:"IBM Plex Sans Arabic",Tahoma,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a14; --surface:#1c241c; --fg:#e7ede4; --muted:#a3b0a0; --line:#2f3a2e;
+  --leaf:#7cc28a; --leaf-soft:#22362a; --soil:#d9a273; --soil-soft:#35281d;
+  --ok:#7fd193; --ok-bg:#1f3626; --warn:#f0bd5a; --warn-bg:#3a2f17; --bad:#f08a80; --bad-bg:#3d201d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a14; --surface:#1c241c; --fg:#e7ede4; --muted:#a3b0a0; --line:#2f3a2e;
+  --leaf:#7cc28a; --leaf-soft:#22362a; --soil:#d9a273; --soil-soft:#35281d;
+  --ok:#7fd193; --ok-bg:#1f3626; --warn:#f0bd5a; --warn-bg:#3a2f17; --bad:#f08a80; --bad-bg:#3d201d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.7}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.4}
+h1{font-size:1.65rem;color:var(--leaf)}
+h2{font-size:1.15rem}
+h3{font-size:1rem}
+p{margin:0}
+.sub{color:var(--muted)}
+header{display:flex;flex-direction:column;gap:4px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{font:inherit;font-weight:600;padding:12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.seg button[aria-pressed="true"]{border-color:var(--leaf);background:var(--leaf-soft);color:var(--leaf)}
+.seg button[data-mode="soil"][aria-pressed="true"]{border-color:var(--soil);background:var(--soil-soft);color:var(--soil)}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:190px;border:2px dashed var(--line);border-radius:12px;cursor:pointer;text-align:center;padding:16px;color:var(--muted);overflow:hidden;position:relative}
+.drop:focus-within{outline:2px solid var(--leaf);outline-offset:2px}
+.drop img{max-height:280px;border-radius:8px;object-fit:contain}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop .big{font-family:var(--display);font-size:1.05rem;color:var(--fg)}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:500}
+select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:76px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;font-family:var(--display);font-size:1.05rem;padding:14px 18px;border-radius:12px;border:0;background:var(--leaf);color:var(--surface);cursor:pointer;flex:1}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);flex:0 0 auto}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.status{color:var(--muted);font-size:.95rem}
+.err{color:var(--bad);font-weight:500}
+.tag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--soil-soft);color:var(--soil)}
+.verdict{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;font-weight:600}
+.verdict .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:currentColor}
+.v-ok{background:var(--ok-bg);color:var(--ok)} .v-warn{background:var(--warn-bg);color:var(--warn)} .v-bad{background:var(--bad-bg);color:var(--bad)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:600;min-width:0}
+.prob{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:6px}
+.prob:first-of-type{border-top:0;padding-top:0}
+.probhead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--leaf)}
+.kind{font-size:.8rem;color:var(--muted)}
+ol,ul{margin:0;padding-inline-start:22px;display:flex;flex-direction:column;gap:4px}
+.note{font-size:.88rem;color:var(--muted)}
+.hidden{display:none}
+.steps{display:flex;gap:6px;font-size:.85rem;color:var(--muted)}
+.steps span{flex:1;text-align:center;padding:6px 4px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.steps span.on{background:var(--leaf-soft);color:var(--leaf);border-color:var(--leaf);font-weight:600}
+.q{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.q:first-of-type{border-top:0;padding-top:0}
+.q .why{font-size:.85rem;color:var(--muted)}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opts label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;background:var(--bg)}
+.opts label:has(input:checked){border-color:var(--leaf);background:var(--leaf-soft)}
+.opts input{margin-top:6px;accent-color:var(--leaf)}
+input[type=text]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+.sci{font-family:Georgia,serif;font-style:italic;direction:ltr;unicode-bidi:isolate;color:var(--muted);font-weight:400}
+.tx{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.tx strong{font-size:1rem}
+.tx .meta{font-size:.85rem;color:var(--muted)}
+.col{display:flex;flex-direction:column;gap:18px}
+#tabProg:not([hidden]){display:flex;flex-direction:column;gap:18px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tabs button{font:inherit;font-family:var(--display);font-weight:600;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.tabs button[aria-selected="true"]{border-color:var(--leaf);background:var(--leaf-soft);color:var(--leaf)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid2 label{display:flex;flex-direction:column;gap:4px;font-weight:500;min-width:0}
+.grid2 select,.grid2 input{width:100%;min-width:0}
+input[type=date],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+.wk{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.wk.now{border-color:var(--leaf);box-shadow:0 0 0 1px var(--leaf) inset}
+.wk h3{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wk .lbl{color:var(--muted);font-size:.85rem;font-weight:600;display:block}
+.chk{border-inline-start:3px solid var(--leaf);padding-inline-start:10px;display:flex;flex-direction:column;gap:4px}
+.chg{background:var(--warn-bg);color:var(--fg);border-radius:10px;padding:10px 12px}
+[hidden]{display:none!important}
+.alert{padding:10px 12px;border-radius:10px;background:var(--bad-bg);color:var(--bad);font-weight:500}
+@media (prefers-reduced-motion:no-preference){.panel{transition:border-color .2s}}
+.back{font:inherit;font-weight:600;color:var(--leaf);text-decoration:none}
+body{margin:0}
+</style>
+<script src="config.js"></script>
+</body></html>
+</head><body>
+<div class="wrap" dir="rtl" lang="ar">
+  <header>
+    <a class="back" href="./">↩ أرضي (الخريطة والجو والري)</a>
+    <h1>طبيب الزرع</h1>
+    <p class="sub">صوّر النبات أو التربة، جاوب على كام سؤال، واعرف المشكلة بالظبط وعلاجها.</p>
+  </header>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tDiag" aria-selected="true">🔍 تشخيص صورة</button>
+    <button role="tab" id="tProg" aria-selected="false">📅 برنامجي</button>
+  </div>
+  <div id="tabDiag" class="col">
+  <div class="steps" aria-hidden="true"><span id="st1" class="on">١ الصورة</span><span id="st2">٢ الأسئلة</span><span id="st3">٣ التشخيص</span></div>
+
+  <section class="panel" id="p1" aria-label="الصورة">
+    <div class="seg" role="group" aria-label="نوع الصورة">
+      <button id="m-plant" data-mode="plant" aria-pressed="true">🌿 نبات</button>
+      <button id="m-soil" data-mode="soil" aria-pressed="false">🟫 تربة</button>
+    </div>
+    <label class="drop" id="drop">
+      <input id="photo" type="file" accept="image/*" capture="environment" aria-label="اختار أو صوّر صورة">
+      <img id="preview" alt="الصورة المختارة" class="hidden">
+      <span id="dropText"><span class="big">اضغط هنا للتصوير</span><br>أو اختار صورة من الموبايل</span>
+    </label>
+    <label class="f" for="dField">أرضك (اختياري، عشان نضيف الجو الحقيقي)
+      <select id="dField"></select>
+    </label>
+    <label class="f" for="crop"><span id="cropLabel">المحصول (لو تعرفه)</span>
+      <select id="crop">
+        <option value="">مش متأكد / خلّي التطبيق يعرفه</option>
+        <option>موز</option><option>طماطم</option><option>بطاطس</option><option>قمح</option><option>ذرة</option>
+        <option>أرز</option><option>قطن</option><option>موالح (برتقال، ليمون)</option><option>مانجو</option>
+        <option>زيتون</option><option>عنب</option><option>نخيل بلح</option><option>رمان</option><option>فراولة</option>
+        <option>فلفل</option><option>خيار</option><option>كوسة / قرعيات</option><option>بصل</option><option>ثوم</option>
+        <option>فول بلدي</option><option>برسيم</option><option>بنجر سكر</option><option>قصب سكر</option>
+      </select>
+    </label>
+    <label class="f" for="notes">ملاحظات (اختياري)
+      <textarea id="notes" placeholder="مثلاً: آخر رية من ١٠ أيام، الورق بدأ يصفر من تحت، سمّدت يوريا من أسبوعين"></textarea>
+    </label>
+    <div class="row">
+      <button class="btn" id="go" disabled>ابدأ الفحص</button>
+      <button class="btn ghost hidden" id="stop">إيقاف</button>
+    </div>
+    <p class="status" id="status" aria-live="polite">اختار صورة واضحة في ضوء النهار، وقرّب من الجزء المصاب.</p>
+  </section>
+
+  <section class="panel hidden" id="p2" aria-label="أسئلة التشخيص"></section>
+  <section class="panel" id="result" aria-live="polite"></section>
+  </div>
+
+  <div id="tabProg" hidden>
+    <section class="panel" id="progList"></section>
+    <section class="panel" id="progForm" hidden></section>
+    <section class="panel" id="progView" hidden></section>
+    <section class="panel" id="progUpd" hidden></section>
+  </div>
+
+  <p class="note">التشخيص مبدئي بالذكاء الاصطناعي. استخدم بس المبيدات المسجلة في مصر (لجنة مبيدات الآفات الزراعية) والجرعة المكتوبة على العبوة، والتزم بفترة الأمان قبل الحصاد. لو مش متأكد، اسأل مهندس زراعي أو ابعت عينة للمعمل.</p>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  let mode = "plant", file = null, sample = null, ctl = null;
+  let first = null, history = [], round = 0;
+  const MAX_ROUNDS = 2;
+
+  const KIND = {fungus:"فطر", bacterium:"بكتيريا", virus:"فيروس", insect:"حشرة", mite:"أكاروس (عنكبوت)", nematode:"نيماتودا", nutrient:"نقص / زيادة عناصر", water:"مياه / ري", salinity:"ملوحة", weather:"جو (برد، حر، ريح)", chemical:"سمية مبيد أو سماد", soil:"تربة", other:"أخرى",
+    disease:"مرض", pest:"آفة"};
+  const TTYPE = {chemical:"كيماوي", biological:"حيوي", cultural:"زراعي / يدوي", fertilizer:"تسميد"};
+  const VERDICT = {healthy:["v-ok","سليم"], warning:["v-warn","محتاج متابعة"], critical:["v-bad","مشكلة خطيرة"]};
+
+  const EXAMPLE = {
+    status:"warning",
+    identity:{name:"طماطم", detail:"نبات في مرحلة التزهير"},
+    diagnosis:{name:"الندوة المبكرة", scientific:"Alternaria solani", agent:"fungus", confidence:88},
+    summary:"البقع البنية اللي فيها حلقات زي الدوائر على الورق القديم، ومعاها إن الجو دافي ورطب الأسبوع ده، بتأكد إنها الندوة المبكرة.",
+    differentials:[{name:"الندوة المتأخرة", scientific:"Phytophthora infestans", confidence:10, why:"مافيش بقع مايّة ولا زغب أبيض تحت الورقة"}],
+    treatment:[
+      {active:"مانكوزيب", group:"FRAC M03 (وقائي)", type:"chemical", how:"رشة وقائية كل ٧–١٠ أيام في الجو الرطب، حسب جرعة العبوة", phi:"حسب العبوة"},
+      {active:"أزوكسيستروبين + ديفينوكونازول", group:"FRAC 11 + 3 (علاجي)", type:"chemical", how:"لو الإصابة زادت. ماتكررش نفس المجموعة أكتر من مرتين ورا بعض", phi:"حسب العبوة"},
+      {active:"باسيلس سبتلس", group:"حيوي", type:"biological", how:"بديل أو تبادل مع الكيماوي", phi:"لا يوجد تقريباً"}],
+    actions:["شيل الورق المصاب واحرقه بعيد عن الأرض","اسقي في الجذور ومارشّش مية على الورق"],
+    prevention:["دورة زراعية بعيد عن الطماطم والبطاطس","مسافات تسمح بمرور الهوا"],
+    confirm:"لو البقع ظهرت على الساق أو الثمار أو انتشرت بسرعة، ابعت عينة لمعمل أمراض النبات."
+  };
+
+  function setMode(m){
+    mode = m;
+    $("m-plant").setAttribute("aria-pressed", m==="plant");
+    $("m-soil").setAttribute("aria-pressed", m==="soil");
+    $("cropLabel").textContent = m==="plant" ? "المحصول (لو تعرفه)" : "المحصول المزروع أو اللي ناوي تزرعه";
+    $("notes").placeholder = m==="plant"
+      ? "مثلاً: آخر رية من ١٠ أيام، الورق بدأ يصفر من تحت، سمّدت يوريا من أسبوعين"
+      : "مثلاً: الأرض بتشرّب المية ببطء، فيه طبقة بيضا على الوش، بنسقي بالغمر";
+  }
+  $("m-plant").onclick = () => setMode("plant");
+  $("m-soil").onclick = () => setMode("soil");
+
+  $("photo").addEventListener("change", e => {
+    file = e.target.files && e.target.files[0] || null;
+    if (!file) return;
+    const img = $("preview");
+    img.src = URL.createObjectURL(file);
+    img.classList.remove("hidden");
+    $("dropText").classList.add("hidden");
+    $("go").disabled = !sample;
+    if (sample) $("status").textContent = "جاهز. اضغط «ابدأ الفحص».";
+  });
+
+  function esc(s){ const d=document.createElement("div"); d.textContent = s==null ? "" : String(s); return d.innerHTML; }
+  function list(items, tag){ if(!Array.isArray(items)||!items.length) return ""; return `<${tag}>${items.map(i=>`<li>${esc(i)}</li>`).join("")}</${tag}>`; }
+  /* ---------- Ardi fields, weather, AI server ---------- */
+  const CROP_AR = {tomato:"طماطم",potato:"بطاطس",wheat:"قمح",maize:"ذرة",rice:"أرز",cotton:"قطن",banana:"موز",citrus:"موالح",mango:"مانجو",olive:"زيتون",grape:"عنب",strawberry:"فراولة",cucumber:"خيار",pepper:"فلفل",onion:"بصل"};
+  function ardiFields(){ try { return JSON.parse(localStorage.getItem("ardi.fields")||"[]"); } catch(_){ return []; } }
+  function centroidOf(c){ let a=0,b=0; c.forEach(p=>{a+=p[0];b+=p[1];}); return [a/c.length,b/c.length]; }
+  function feddanOf(c){ if(!c||c.length<3) return 0; const R=6371000, lat0=centroidOf(c)[0]*Math.PI/180; let s=0;
+    for(let i=0;i<c.length;i++){ const [y1,x1]=c[i], [y2,x2]=c[(i+1)%c.length]; s += (x1*Math.PI/180*R*Math.cos(lat0))*(y2*Math.PI/180*R) - (x2*Math.PI/180*R*Math.cos(lat0))*(y1*Math.PI/180*R); }
+    return Math.abs(s/2)/4200; }
+  function fieldOpts(sel){ const fs=ardiFields(); return `<option value="">${fs.length?"— من غير أرض —":"لسه مارسمتش أرض في أرضي"}</option>`+fs.map(f=>`<option value="${esc(f.id)}"${f.id===sel?" selected":""}>${esc(f.name)} · ${esc(CROP_AR[f.crop]||f.crop||"")} · ${feddanOf(f.coords).toFixed(2)} فدان</option>`).join(""); }
+  function parseLoc(t){ const m=String(t||"").match(/(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/); return m?[+m[1],+m[2]]:null; }
+  async function weatherText(lat, lon){
+    const u="https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+
+      "&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max,relative_humidity_2m_min,precipitation_sum,wind_speed_10m_max,et0_fao_evapotranspiration"+
+      "&hourly=soil_moisture_3_to_9cm,soil_moisture_27_to_81cm&timezone=auto&past_days=7&forecast_days=7";
+    try{
+      const r=await fetch(u); if(!r.ok) return ""; const w=await r.json(), d=w.daily, today=new Date().toISOString().slice(0,10);
+      const H=w.hourly, i=Math.max(0,H.time.findIndex(t=>t.slice(0,13)>=new Date().toISOString().slice(0,13)));
+      let t=`الجو الحقيقي لأرض المزارع (${lat.toFixed(3)}, ${lon.toFixed(3)}) من Open-Meteo — 7 أيام فاتت و7 جاية:\nاليوم | عظمى/صغرى° | رطوبة٪ | رياح كم/س | مطر مم | ET0 مم\n`;
+      d.time.forEach((x,k)=>{ t+=`${x}${x===today?" (النهارده)":""} | ${Math.round(d.temperature_2m_max[k])}/${Math.round(d.temperature_2m_min[k])} | ${Math.round(d.relative_humidity_2m_min[k])}–${Math.round(d.relative_humidity_2m_max[k])} | ${Math.round(d.wind_speed_10m_max[k])} | ${(d.precipitation_sum[k]||0).toFixed(1)} | ${(d.et0_fao_evapotranspiration[k]||0).toFixed(1)}\n`; });
+      const sm=k=>H[k]&&H[k][i]!=null?Math.round(H[k][i]*100)+"%":"؟";
+      return t+`رطوبة التربة (موديل) دلوقتي: 3–9 سم ${sm("soil_moisture_3_to_9cm")}، 27–81 سم ${sm("soil_moisture_27_to_81cm")}`;
+    }catch(_){ return ""; }
+  }
+  async function toJpeg(f){
+    const img = await createImageBitmap(f).catch(()=>null);
+    if(!img) throw {code:"image_rejected"};
+    const sc = Math.min(1, Math.sqrt(1200000/(img.width*img.height)));
+    const cv = document.createElement("canvas"); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+    cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+    const url = cv.toDataURL("image/jpeg",0.85); return {media_type:"image/jpeg", data:url.slice(url.indexOf(",")+1)};
+  }
+  const AI_URL = String(window.ARDI_AI_URL||"").replace(/\/$/,"");
+  const aiServer = AI_URL ? {
+    limits: async()=>({images:{maxCount:4}}),
+    json: async(prompt, o={})=>{
+      const imgs = o.images ? await Promise.all(Array.from(o.images).slice(0,4).map(toJpeg)) : [];
+      let r;
+      try{ r = await fetch(AI_URL+"/ai",{method:"POST",headers:{"Content-Type":"application/json"},signal:o.signal,
+        body:JSON.stringify({prompt, images:imgs, effort:o.modelTier==="complex"?"high":"medium"})}); }
+      catch(e){ throw {code: e && e.name==="AbortError" ? "cancelled" : "network"}; }
+      const j = await r.json().catch(()=>({error:"invalid_json"}));
+      if(!j.ok) throw {code:j.error||"network"};
+      return j.json;
+    }} : null;
+
+  function pct(x){ return Math.max(0,Math.min(100,Number(x)||0)); }
+  function steps(n){ ["st1","st2","st3"].forEach((id,i)=>$(id).classList.toggle("on", i===n-1)); }
+
+  /* ---------- prompts ---------- */
+  const KEY = `
+مفاتيح مهمة:
+- ورق قديم الأول = عناصر متحركة (N, P, K, Mg) أو ملوحة أو عطش أو ذبول فيوزاريوم. ورق حديث الأول = حديد، زنك، بورون، كالسيوم، كبريت، منجنيز، فيروسات، أو مبيد حشائش.
+- الحقل كله مرة واحدة أو في خط = سبب غير حي (مية، ملوحة، برد، رش). بقع متفرقة بتنتشر = مرض. ذبول والأرض مبلولة = عفن جذور أو نيماتودا أو تغدق.
+- الموز في مصر: نقص بوتاسيوم (اصفرار برتقالي سريع لأطراف الورق القديم وانكسار العرق) هو الأشهر. نقص ماغنسيوم (حواف صفرا وشريط أخضر جنب العرق، وانفصال الأغماد). تورد القمة BBTV (خطوط خضرا غامقة متقطعة زي مورس على العروق، ورق ضيق واقف متجمع فوق) وتبرقش الخيار CMV (موزاييك وخطوط صفرا، عفن القلب في البرد) — الاتنين موجودين في مصر، ومالهمش علاج غير التخلص من النبات ومكافحة المنّ. ذبول فيوزاريوم (ورق قديم يصفر وينكسر ويتدلى زي الجيبة، خطوط حمرا بنية في قطاع الساق) — على الجراند نان والوليامز اعتبره اشتباه TR4 وبلّغ مديرية الزراعة. عفن بكتيري طري ريحته وحشة (Dickeya/Erwinia). نيماتودا تعقد الجذور (Meloidogyne). سوسة الكورمة. العنكبوت الأحمر في الصيف (تبقع برونزي تحت الورقة وخيوط). تريبس (صدأ على القشرة). اختناق الزهرة (choke throat) من برد الشتا.
+- التربة: قشرة ملح بيضا = ملوحة. قشرة سودا لامعة ومية واقفة = قلوية صودية (جبس + غسيل). شقوق عريضة = طين نيلي. حبيبات صفرا سايبة = رملية. بيضا وبتفور مع الخل = جيرية (قفل حديد وزنك وفوسفور). ألوان رمادية وبقع صدا وريحة بيض فاسد = تغدق.`;
+
+  let diagWx = "";
+  function base(){
+    const crop = $("crop").value, notes = $("notes").value.trim().slice(0,1500);
+    return `أنت مهندس زراعي خبير في الزراعة المصرية. المستخدم مزارع أرسل صورة ${mode==="soil"?"لتربة":"لنبات"}.
+${crop?`المحصول حسب المستخدم: ${crop}.`:"المستخدم لم يحدد المحصول، فتعرّف عليه من الصورة."}
+${notes?`ملاحظات المستخدم: ${notes}`:"لا توجد ملاحظات."}
+${diagWx?diagWx+"\nاستخدم الجو ده (رطوبة، حرارة، مطر) في ترجيح الأمراض والمشاكل.":""}
+اكتب كل النصوص بالعربية البسيطة القريبة من اللهجة المصرية، جمل قصيرة يفهمها مزارع. الأسماء العلمية بالحروف اللاتينية.
+كن صادقاً: لو الصورة مش واضحة أو مش ${mode==="soil"?"تربة":"نبات"}، قل ذلك.
+${KEY}
+`;
+  }
+
+  function promptQuestions(){
+    return base() + `
+المهمة الآن: شخّص من الصورة لوحدها لو تقدر.
+- لو الصورة واضحة وكفاية إنك تتأكد (ثقة 80 أو أكتر)، رجّع "sure":true مع التشخيص الكامل والعلاج في نفس الرد، و"questions":[]. ده الأفضل: المزارع مش عايز أسئلة لو مش لازمة.
+- لو مش متأكد، رجّع "sure":false مع الاحتمالات والأسئلة تحت.
+التشخيص الكامل (لما sure=true): اسم المشكلة بالعربي + الاسم العلمي للمسبب، والعلاج بالمادة الفعالة (مش اسم تجاري) ومجموعة FRAC/IRAC وفترة الأمان والجرعة "حسب العبوة". الفيروسات مالهاش مبيد: قول كده والعلاج إزالة النبات ومكافحة الناقل. لو حجر زراعي (TR4، العفن البني) حط تحذير في alert.
+لو sure=false:
+1) تعرّف على ${mode==="soil"?"نوع التربة":"النبات"}، واكتب أرجح 2–4 احتمالات، ولكل احتمال اسم المسبب العلمي إن وجد.
+2) اكتب من 3 إلى 5 أسئلة اختيار من متعدد، كل سؤال يفرّق بين الاحتمالات دي (مثلاً: البداية في الورق القديم ولا الجديد؟ فيه ريحة؟ شكل قطاع الساق من جوه؟ امتى آخر رية؟ الانتشار في نبات واحد ولا بقع ولا الأرض كلها؟ فيه حشرات أو خيوط تحت الورقة؟ الجو الأسبوع اللي فات؟).
+   كل سؤال فيه 3–5 اختيارات قصيرة وواضحة يقدر المزارع يشوفها بعينه. لا تضع "مش عارف" أو "حاجة تانية" — التطبيق بيضيفهم.
+رد بكائن JSON واحد فقط:
+{"identity":{"name":"","detail":""},"first_look":"جملتين عن اللي باين في الصورة","candidates":[{"name":"","scientific":"","agent":"fungus|bacterium|virus|insect|mite|nematode|nutrient|water|salinity|weather|chemical|soil|other","confidence":0-100}],"questions":[{"q":"السؤال","why":"ليه بنسأل، نص سطر","options":["",""]}],
+ "sure":false,"status":"healthy|warning|critical","diagnosis":{"name":"","scientific":"","agent":"","confidence":0-100},"summary":"","differentials":[{"name":"","scientific":"","agent":"","confidence":0-100,"why":""}],"alert":"","treatment":[{"active":"","group":"","type":"chemical|biological|cultural|fertilizer","how":"","phi":""}],"actions":[""],"prevention":[""],"confirm":""}
+(حقول التشخيص الكامل املاها بس لو sure=true.)`;
+  }
+
+  function answersText(){
+    return history.map((r,i)=>`الجولة ${i+1}:\n`+r.map(a=>`- ${a.q} → ${a.a}`).join("\n")).join("\n");
+  }
+
+  function promptFinal(){
+    const canAsk = round < MAX_ROUNDS;
+    return base() + `
+النظرة الأولى كانت: ${JSON.stringify({identity:first.identity, candidates:first.candidates})}
+إجابات المزارع:
+${answersText()}
+
+المهمة الآن: التشخيص النهائي والعلاج.
+- حدد المشكلة بالاسم العربي الشائع في مصر + الاسم العلمي للمسبب (الفطر أو البكتيريا أو الفيروس أو الحشرة أو الأكاروس أو النيماتودا). لو نقص عنصر أو سبب غير حي اكتب العنصر أو السبب في scientific (مثلاً "Potassium (K) deficiency").
+- العلاج: اكتب المادة الفعالة (مش اسم تجاري)، ومجموعتها (FRAC أو IRAC أو نوع السماد)، ونوعه، وطريقة الاستخدام، وفترة الأمان. ممنوع تخترع أسماء تجارية أو جرعات مش متأكد منها؛ قول "حسب العبوة" للجرعة. ابدأ بالخطوات الزراعية والحيوية لو مناسبة. نوّع المجموعات عشان المقاومة.
+- الفيروسات مالهاش مبيد يعالجها: قول كده بوضوح، والعلاج هو التخلص من النبات المصاب ومكافحة الحشرة الناقلة.
+- البكتيريا: المركبات النحاسية وقائية بس، وركّز على النظافة والصرف وتطهير الأدوات.
+- لو الحالة حجر زراعي أو خطيرة (TR4 في الموز، العفن البني في البطاطس) حط تحذير في alert.
+${canAsk?`- لو ثقتك في التشخيص أقل من 70 ومحتاج معلومة تفرق فعلاً، رجّع "need_more":true و 1–3 أسئلة جديدة في questions (بنفس الشكل) بدل العلاج.`:`- دي آخر جولة: لازم تدي التشخيص الأرجح حتى لو الثقة متوسطة، وقول إيه اللي يأكده.`}
+رد بكائن JSON واحد فقط:
+{"need_more":false,"questions":[],"status":"healthy|warning|critical","identity":{"name":"","detail":""},"diagnosis":{"name":"","scientific":"","agent":"fungus|bacterium|virus|insect|mite|nematode|nutrient|water|salinity|weather|chemical|soil|other","confidence":0-100},"summary":"ليه وصلنا للتشخيص ده من الصورة والإجابات","differentials":[{"name":"","scientific":"","agent":"","confidence":0-100,"why":"ليه أقل احتمال"}],"alert":"","treatment":[{"active":"المادة الفعالة","group":"","type":"chemical|biological|cultural|fertilizer","how":"","phi":""}],"actions":["خطوات عملية مرتبة"],"prevention":[""],"confirm":"إزاي يتأكد أو امتى يروح لمعمل"}`;
+  }
+
+  /* ---------- render ---------- */
+  function renderQuestions(qs, intro){
+    const p = $("p2"); p.classList.remove("hidden"); steps(2);
+    p.innerHTML = `<h2>${round===0?"كام سؤال عشان نحدد بالظبط":"أسئلة كمان عشان نتأكد"}</h2>
+      ${intro?`<p>${intro}</p>`:""}
+      <form id="qf">` + qs.map((q,i)=>`
+        <fieldset class="q" style="border:0;margin:0;padding-inline:0">
+          <legend style="font-weight:600;padding:0">${i+1}. ${esc(q.q)}</legend>
+          ${q.why?`<p class="why">${esc(q.why)}</p>`:""}
+          <div class="opts">
+            ${(q.options||[]).map((o,j)=>`<label><input type="radio" name="q${i}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join("")}
+            <label><input type="radio" name="q${i}" value="مش عارف"><span>مش عارف / مش متأكد</span></label>
+            <label><input type="radio" name="q${i}" value="__other"><span>حاجة تانية (اكتبها)</span></label>
+            <input type="text" id="o${i}" class="hidden" placeholder="اكتب اللي شايفه">
+          </div>
+        </fieldset>`).join("") + `
+        <div class="row"><button class="btn" id="diag" type="submit">شخّص</button><button class="btn ghost" id="skipQ" type="button">من غير أسئلة</button></div>
+        <p class="status" id="qstatus" aria-live="polite"></p>
+      </form>`;
+    qs.forEach((q,i)=>{
+      p.querySelectorAll(`input[name=q${i}]`).forEach(r=>r.addEventListener("change",()=>{
+        const other = p.querySelector(`input[name=q${i}]:checked`).value==="__other";
+        $("o"+i).classList.toggle("hidden", !other); if(other) $("o"+i).focus();
+      }));
+    });
+    $("qf").onsubmit = ev => { ev.preventDefault(); submitAnswers(qs); };
+    $("skipQ").onclick = async () => { history.push([{q:"المزارع اختار يشخّص من الصورة بس", a:"من غير إجابات"}]); round = MAX_ROUNDS; $("skipQ").disabled = true; await finalStep(); };
+    p.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  function renderFirst(r){
+    const c = Array.isArray(r.candidates)?r.candidates:[];
+    $("result").innerHTML = `<h2>نظرة أولى</h2>
+      <dl class="kv"><dt>${mode==="soil"?"نوع التربة":"النبات"}</dt><dd>${esc(r.identity&&r.identity.name)}</dd>
+      ${r.identity&&r.identity.detail?`<dt>تفاصيل</dt><dd>${esc(r.identity.detail)}</dd>`:""}</dl>
+      <p>${esc(r.first_look)}</p>
+      ${c.length?`<h3>الاحتمالات لحد دلوقتي</h3>`+c.map(x=>probRow(x.name,x.scientific,x.agent,x.confidence,"")).join(""):""}
+      <p class="note">جاوب على الأسئلة فوق عشان نختار واحد منهم ونقولك العلاج.</p>`;
+  }
+
+  function probRow(name, sci, agent, conf, why){
+    const c = pct(conf);
+    return `<div class="prob">
+      <div class="probhead"><strong>${esc(name)} ${sci?`<span class="sci">${esc(sci)}</span>`:""}</strong><span class="kind">${esc(KIND[agent]||agent||"")} · ثقة ${c}٪</span></div>
+      <div class="meter" aria-hidden="true"><span style="width:${c}%"></span></div>
+      ${why?`<p class="note">${esc(why)}</p>`:""}</div>`;
+  }
+
+  function renderFinal(r, isExample){
+    steps(3);
+    const v = VERDICT[r.status] || VERDICT.warning;
+    const d = r.diagnosis || {};
+    const tx = Array.isArray(r.treatment)?r.treatment:[];
+    const dif = Array.isArray(r.differentials)?r.differentials:[];
+    $("result").innerHTML = `
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h2>التشخيص</h2>${isExample?'<span class="tag">مثال توضيحي</span>':""}
+      </div>
+      <dl class="kv"><dt>${mode==="soil"?"نوع التربة":"النبات"}</dt><dd>${esc(r.identity&&r.identity.name)}</dd>
+      ${r.identity&&r.identity.detail?`<dt>تفاصيل</dt><dd>${esc(r.identity.detail)}</dd>`:""}</dl>
+      <div class="verdict ${v[0]}"><span class="dot"></span>${v[1]}</div>
+      ${r.alert?`<p class="alert">⚠️ ${esc(r.alert)}</p>`:""}
+      ${probRow(d.name, d.scientific, d.agent, d.confidence, "")}
+      <dl class="kv"><dt>المسبب</dt><dd>${esc(KIND[d.agent]||d.agent||"")}${d.scientific?` — <span class="sci">${esc(d.scientific)}</span>`:""}</dd></dl>
+      <p>${esc(r.summary)}</p>
+      ${tx.length?`<h3>العلاج</h3>`+tx.map(t=>`<div class="tx"><strong>${esc(t.active)}</strong>
+        <span class="meta">${esc(TTYPE[t.type]||t.type||"")}${t.group?` · ${esc(t.group)}`:""}${t.phi?` · فترة الأمان: ${esc(t.phi)}`:""}</span>
+        ${t.how?`<span>${esc(t.how)}</span>`:""}</div>`).join(""):""}
+      ${Array.isArray(r.actions)&&r.actions.length?`<h3>اعمل إيه دلوقتي</h3>${list(r.actions,"ol")}`:""}
+      ${Array.isArray(r.prevention)&&r.prevention.length?`<h3>عشان المشكلة ماترجعش</h3>${list(r.prevention,"ul")}`:""}
+      ${dif.length?`<h3>احتمالات أقل</h3>`+dif.map(x=>probRow(x.name,x.scientific,x.agent,x.confidence,x.why)).join(""):""}
+      ${r.confirm?`<p class="note">${esc(r.confirm)}</p>`:""}
+      ${isExample?'<p class="note">ده مثال عشان تشوف شكل النتيجة. صوّر نباتك أو تربتك فوق، وجاوب الأسئلة، وهتظهر نتيجتك هنا.</p>':
+        `<div class="row"><button class="btn ghost" id="again" style="flex:1">فحص صورة جديدة</button></div>`}`;
+    const a = $("again"); if (a) a.onclick = reset;
+  }
+
+  function reset(){
+    first=null; history=[]; round=0;
+    $("p2").classList.add("hidden"); $("p2").innerHTML="";
+    renderFinal(EXAMPLE, true); steps(1);
+    $("p1").scrollIntoView({behavior:"smooth"});
+  }
+
+  /* ---------- flow ---------- */
+  const ERR = {
+    not_granted:"لازم تسمح للصفحة تستخدم Claude عشان الفحص يشتغل.",
+    rate_limited:"طلبات كتير ورا بعض. استنى دقيقة وجرّب تاني.",
+    image_rejected:"الصورة دي مش مقبولة. جرّب صورة JPG أو PNG أصغر.",
+    images_unavailable:"إرسال الصور مش متاح هنا. افتح الصفحة من claude.ai.",
+    invalid_json:"الرد جه بشكل غريب. جرّب تاني.",
+    session_expired:"سجّل الدخول تاني في Claude وجرّب.",
+    refused:"مقدرناش نحلل الصورة دي. جرّب صورة تانية.",
+    not_configured:"الذكاء الاصطناعي لسه مش متوصل بالسيرفر. كلّم صاحب التطبيق.",
+    bad_key:"مفتاح الذكاء الاصطناعي مش شغال. كلّم صاحب التطبيق.",
+    too_long:"الرد طلع طويل زيادة. جرّب تاني.",
+    network:"مفيش اتصال بالسيرفر. اتأكد من الإنترنت وجرّب تاني.",
+  };
+  function errMsg(e){ return e && e.code==="cancelled" ? "اتوقف الفحص." : (ERR[e && e.code] || "حصلت مشكلة في الاتصال. جرّب تاني."); }
+
+  $("go").onclick = async () => {
+    if (!file || !sample) return;
+    first=null; history=[]; round=0;
+    $("p2").classList.add("hidden");
+    diagWx = "";
+    const df = ardiFields().find(f=>f.id===$("dField").value);
+    if (df){ $("status").textContent="بنجيب جو أرضك…"; const [la,lo]=centroidOf(df.coords); diagWx = await weatherText(la,lo); }
+    ctl = new AbortController();
+    $("go").disabled = true; $("stop").classList.remove("hidden");
+    $("status").className = "status";
+    $("status").textContent = "بنبص على الصورة ونجهز الأسئلة… من ١٥ لـ ٦٠ ثانية.";
+    try {
+      const r = await sample.json(promptQuestions(), {images:[file], signal:ctl.signal});
+      if (!r || typeof r !== "object") throw {code:"invalid_json"};
+      first = r;
+      if (r.sure && r.diagnosis && r.diagnosis.name && pct(r.diagnosis.confidence) >= 75){
+        renderFinal(r, false);
+        $("status").textContent = "الصورة كانت واضحة كفاية. التشخيص والعلاج تحت.";
+        $("result").scrollIntoView({behavior:"smooth", block:"start"});
+        return;
+      }
+      renderFirst(r);
+      const qs = Array.isArray(r.questions) ? r.questions.filter(q=>q&&q.q).slice(0,5) : [];
+      if (qs.length){ renderQuestions(qs); $("status").textContent = "جاوب على الأسئلة تحت."; }
+      else { $("status").textContent = "بنكمل التشخيص…"; await finalStep(); }
+    } catch(e){
+      $("status").className = "status" + (e&&e.code==="cancelled"?"":" err"); $("status").textContent = errMsg(e);
+    } finally {
+      $("go").disabled = false; $("stop").classList.add("hidden");
+    }
+  };
+  $("stop").onclick = () => ctl && ctl.abort();
+
+  async function submitAnswers(qs){
+    const p = $("p2");
+    const ans = qs.map((q,i)=>{
+      const c = p.querySelector(`input[name=q${i}]:checked`);
+      let a = c ? c.value : "مش عارف";
+      if (a==="__other") a = ($("o"+i).value.trim().slice(0,300) || "مش عارف");
+      return {q:q.q, a};
+    });
+    history.push(ans); round++;
+    await finalStep();
+  }
+
+  async function finalStep(){
+    const st = $("qstatus") || $("status");
+    const btn = $("diag");
+    if (btn) btn.disabled = true;
+    st.className = "status"; st.textContent = "بنشخّص… من ١٥ لـ ٦٠ ثانية.";
+    ctl = new AbortController();
+    try {
+      const r = await sample.json(promptFinal(), {images:[file], signal:ctl.signal});
+      if (!r || typeof r !== "object") throw {code:"invalid_json"};
+      const more = Array.isArray(r.questions) ? r.questions.filter(q=>q&&q.q).slice(0,3) : [];
+      if (r.need_more && more.length && round < MAX_ROUNDS){
+        renderQuestions(more, "محتاجين نتأكد من حاجة أو اتنين قبل ما نقولك العلاج.");
+        return;
+      }
+      $("p2").classList.add("hidden");
+      renderFinal(r, false);
+      $("status").className="status"; $("status").textContent = "خلصنا. التشخيص والعلاج تحت.";
+      $("result").scrollIntoView({behavior:"smooth", block:"start"});
+    } catch(e){
+      st.className = "status err"; st.textContent = errMsg(e);
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* ================= برنامجي ================= */
+  const GOV = ["القاهرة","الجيزة","القليوبية","الإسكندرية","البحيرة","النوبارية / غرب الدلتا","كفر الشيخ","الدقهلية","الغربية","المنوفية","الشرقية","دمياط","بورسعيد","الإسماعيلية","السويس","الفيوم","بني سويف","المنيا","أسيوط","سوهاج","قنا","الأقصر","أسوان","الوادي الجديد","مطروح","شمال سيناء","جنوب سيناء","البحر الأحمر","توشكى / شرق العوينات"];
+  const PCROPS = ["موز","طماطم","بطاطس","قمح","ذرة","أرز","قطن","موالح","مانجو","زيتون","عنب","نخيل بلح","رمان","فراولة","فلفل","خيار","بصل","ثوم","فول بلدي","برسيم","بنجر سكر","قصب سكر"];
+  let db = null, uid = null, progs = [], cur = null, updFiles = [];
+  const LS = "ardi.programs";
+
+  $("tDiag").onclick = () => tab("diag");
+  $("tProg").onclick = () => tab("prog");
+  function tab(t){
+    $("tDiag").setAttribute("aria-selected", t==="diag"); $("tProg").setAttribute("aria-selected", t==="prog");
+    $("tabDiag").hidden = t!=="diag"; $("tabProg").hidden = t!=="prog";
+    if (t==="prog" && !cur) showList();
+  }
+
+  /* ---- storage: db per user, else this browser ---- */
+  async function loadProgs(){
+    if (db && uid){
+      try { const q = await db.collection("data/users/"+uid).get(); progs = q.docs.map(d=>({id:d.id, ...structuredClone(d.data())})).filter(p=>p.kind==="program"); return; } catch(_){}
+    }
+    try { progs = JSON.parse(localStorage.getItem(LS)||"[]"); } catch(_){ progs = []; }
+  }
+  async function saveProg(p){
+    p.updated = new Date().toISOString();
+    if (db && uid){
+      try { await db.collection("data/users/"+uid).doc(p.id).set(JSON.parse(JSON.stringify(p))); return true; }
+      catch(e){ if (e && e.code==="quota_exceeded"){ alert("المساحة خلصت. امسح برنامج قديم."); return false; } }
+    }
+    try { const all = JSON.parse(localStorage.getItem(LS)||"[]").filter(x=>x.id!==p.id); all.push(p); localStorage.setItem(LS, JSON.stringify(all)); } catch(_){}
+    return true;
+  }
+  async function delProg(p){
+    if (db && uid){ try { await db.collection("data/users/"+uid).doc(p.id).delete(); } catch(_){} }
+    try { localStorage.setItem(LS, JSON.stringify(JSON.parse(localStorage.getItem(LS)||"[]").filter(x=>x.id!==p.id))); } catch(_){}
+  }
+
+  function weekNo(p){ const d = (Date.now() - new Date(p.form.date+"T00:00").getTime())/864e5; return Math.max(0, Math.floor(d/7)); }
+  function ageText(p){ const d = Math.floor((Date.now() - new Date(p.form.date+"T00:00").getTime())/864e5); return d<0 ? `لسه ${-d} يوم على الزراعة` : `عمر الزرعة ${d} يوم (الأسبوع ${Math.floor(d/7)+1})`; }
+
+  async function showList(){
+    ["progForm","progView","progUpd"].forEach(id=>$(id).hidden=true);
+    const L = $("progList"); L.hidden=false;
+    L.innerHTML = `<h2>برامجي</h2><p class="status">بنحمّل…</p>`;
+    await loadProgs();
+    L.innerHTML = `<h2>برامجي</h2>
+      <p class="sub">اعمل برنامج للمحصول (ري، تسميد، رش، متابعة) أسبوع بأسبوع. وكل ما تبعت صور وجو جديد، البرنامج بيتعدّل على حالة زرعتك.</p>
+      ${progs.length ? progs.sort((a,b)=>(b.updated||"").localeCompare(a.updated||"")).map(p=>`
+        <button class="btn ghost" data-id="${esc(p.id)}" style="text-align:start;flex:none">
+          <strong>${esc(p.form.crop)} · ${esc(p.form.gov)}</strong> <span class="note">· ${esc(p.form.area)} فدان · ${esc(ageText(p))} · ${p.checkins?p.checkins.length:0} تحديث</span>
+        </button>`).join("") : `<p class="note">لسه مفيش برامج.</p>`}
+      <button class="btn" id="newProg">➕ برنامج جديد</button>
+      ${db&&uid?`<p class="note">برامجك محفوظة في حسابك وبتظهر لك بس.</p>`:`<p class="note">البرامج محفوظة على الموبايل ده بس.</p>`}`;
+    L.querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>{ cur = progs.find(p=>p.id===b.dataset.id); showProg(); });
+    $("newProg").onclick = showForm;
+  }
+
+  function opts(a, sel){ return a.map(x=>`<option${x===sel?" selected":""}>${esc(x)}</option>`).join(""); }
+  function showForm(){
+    $("progList").hidden=true; const F=$("progForm"); F.hidden=false;
+    const today = new Date().toISOString().slice(0,10);
+    F.innerHTML = `<h2>برنامج جديد</h2>
+      <form id="pf" class="col" style="gap:12px">
+      <label class="f">اختار أرض من أرضي (بيملا المكان والمساحة والمحصول، وبيجيب الجو الحقيقي)<select id="fField">${fieldOpts("")}</select></label>
+      <div class="grid2">
+        <label>المحصول<select id="fCrop">${opts(PCROPS)}</select></label>
+        <label>الصنف<input type="text" id="fVar" placeholder="مثلاً: جراند نان"></label>
+        <label>تاريخ الزراعة<input type="date" id="fDate" value="${today}" required></label>
+        <label>المساحة (فدان)<input type="number" id="fArea" min="0.05" step="0.05" value="1" required></label>
+        <label>المحافظة / المنطقة<select id="fGov">${opts(GOV)}</select></label>
+        <label>نوع التربة<select id="fSoil">${opts(["طينية (أرض قديمة)","طميية","رملية (أراضي جديدة)","جيرية","ملحية / ضعيفة الصرف","مش عارف"])}</select></label>
+        <label>نظام الري<select id="fIrr">${opts(["تنقيط","رش","محوري","غمر / سطحي","فقاعات (bubbler)"])}</select></label>
+        <label>مصدر المية<select id="fWat">${opts(["نيل / ترعة","بئر","مختلط"])}</select></label>
+        <label>ملوحة المية EC (لو تعرفها)<input type="number" id="fEC" min="0" step="0.1" placeholder="dS/m"></label>
+        <label>السوق<select id="fMkt">${opts(["محلي","تصدير"])}</select></label>
+      </div>
+      <label class="f">إحداثيات الأرض (اختياري)<input type="text" id="fLoc" placeholder="مثلاً: 25.6872, 32.6396 — من خريطة أرضي"></label>
+      <label class="f">تحليل التربة أو أي ملاحظات (اختياري)<textarea id="fNotes" placeholder="مثلاً: pH 8.1، EC تربة 2.5، كثافة 1100 نبات/فدان، بنضيف سماد بلدي 20 م³"></textarea></label>
+      <div class="row"><button class="btn" type="submit" id="fGo" ${sample?"":"disabled"}>اعمل البرنامج</button><button class="btn ghost" type="button" id="fBack">رجوع</button></div>
+      <p class="status" id="fSt" aria-live="polite"></p></form>`;
+    $("fBack").onclick = showList;
+    $("fField").onchange = ()=>{ const f=ardiFields().find(x=>x.id===$("fField").value); if(!f) return;
+      const [la,lo]=centroidOf(f.coords); $("fLoc").value=la.toFixed(5)+", "+lo.toFixed(5);
+      $("fArea").value=feddanOf(f.coords).toFixed(2); const cn=CROP_AR[f.crop]; if(cn && PCROPS.includes(cn)) $("fCrop").value=cn; };
+    $("pf").onsubmit = async ev => {
+      ev.preventDefault(); if(!sample) return;
+      const form = {crop:$("fCrop").value, variety:$("fVar").value.trim().slice(0,60), date:$("fDate").value, area:$("fArea").value, gov:$("fGov").value, soil:$("fSoil").value, irr:$("fIrr").value, water:$("fWat").value, ec:$("fEC").value, market:$("fMkt").value, loc:$("fLoc").value.trim().slice(0,60), field:$("fField").value, notes:$("fNotes").value.trim().slice(0,1500)};
+      $("fGo").disabled=true; $("fSt").className="status"; $("fSt").textContent="بنجهّز البرنامج… ممكن ياخد دقيقة.";
+      try{
+        const ll = parseLoc(form.loc); const wx = ll ? await weatherText(ll[0],ll[1]) : "";
+        $("fSt").textContent = wx ? "جبنا الجو الحقيقي لأرضك. بنجهّز البرنامج…" : "بنجهّز البرنامج…";
+        const plan = await sample.json(promptPlan(form, wx), {modelTier:"complex"});
+        if(!plan || !Array.isArray(plan.weeks)) throw {code:"invalid_json"};
+        const p = {kind:"program", id:"p"+Date.now().toString(36), created:new Date().toISOString(), form, plan, checkins:[]};
+        await saveProg(p); cur=p; showProg();
+      }catch(e){ $("fSt").className="status err"; $("fSt").textContent=errMsg(e); $("fGo").disabled=false; }
+    };
+  }
+
+  const PLAN_SHAPE = `"stage_now":"المرحلة الحالية","season":"ملاحظات عن الجو المعتاد في المنطقة للشهور الجاية وتأثيره","phases":[{"stage":"","timing":"من الأسبوع كذا لكذا أو شهور","key":"أهم حاجة في المرحلة دي"}],"weeks":[{"week":"رقم الأسبوع من الزراعة","dates":"من … لـ …","stage":"","irrigation":"م³/فدان/يوم وعدد النبضات","fertigation":"السماد والكمية للفدان في الأسبوع","sprays":"وقائي أو علاجي: المادة الفعالة + فترة الأمان، أو لا يوجد","scouting":"تفتّش على إيه","work":"عمليات زراعية"}],"warnings":[""]`;
+
+  function farmText(f){
+    return `المحصول: ${f.crop}${f.variety?` (صنف ${f.variety})`:""}. تاريخ الزراعة: ${f.date}. المساحة: ${f.area} فدان. المنطقة: ${f.gov}${f.loc?` (إحداثيات ${f.loc})`:""}. التربة: ${f.soil}. الري: ${f.irr}. المية: ${f.water}${f.ec?`، EC ${f.ec} dS/m`:""}. السوق: ${f.market}.${f.notes?` ملاحظات المزارع: ${f.notes}`:""}`;
+  }
+  const RULES = `قواعد:
+- كل الأرقام بداية تتعدل بالتحليل والمشاهدة. استخدم وحدات الفلاح: فدان = 4200 م²، م³ مية، كجم سماد.
+- الري من ET0 × Kc حسب المنطقة والشهر ومرحلة النمو وكفاءة النظام، وزود غسيل أملاح لو EC عالي.
+- التسميد حسب المحصول المتوقع والسحب، مقسم على المراحل. لا تخلط نترات الكالسيوم مع الكبريتات أو الفوسفات في نفس التانك.
+- الرش: المادة الفعالة بس، مش اسم تجاري، والجرعة "حسب العبوة"، وفترة الأمان. نوّع مجموعات FRAC/IRAC. لو السوق تصدير راعي حدود المتبقيات (MRL) للبلد المستورد.
+- اكتب بالعربي البسيط القريب من المصري.`;
+
+  function promptPlan(f, wx){
+    const today = new Date().toISOString().slice(0,10);
+    return `أنت مهندس زراعي مصري خبير في البرامج الزراعية والري والتسميد. النهارده ${today}.
+${farmText(f)}
+${KEY}
+${RULES}
+${wx?wx+"\nاستخدم الجو الحقيقي ده في الأسابيع الأولى (الري حسب ET0، تنبيهات حر أو برد أو رطوبة).":""}
+المطلوب: برنامج للمحصول ده. اكتب المراحل كلها باختصار في phases، وبعدين تفصيل أسبوع بأسبوع لـ 8 أسابيع من الأسبوع الحالي في weeks (لو لسه مازرعش ابدأ من التجهيز). خلّي في بالك الجو المعتاد للمنطقة دي في الشهور دي (برد، صقيع، حر، رياح خماسين، رطوبة، شبورة) واكتبه في season.
+رد بكائن JSON واحد فقط: {"title":"","summary":"جملتين",${PLAN_SHAPE}}`;
+  }
+
+  function promptUpdate(p, u){
+    const hist = (p.checkins||[]).slice(-5).map(c=>`- ${c.date.slice(0,10)}: ${c.assessment} | التعديلات: ${(c.changes||[]).join("؛ ")}`).join("\n") || "لا يوجد";
+    const today = new Date().toISOString().slice(0,10);
+    return `أنت مهندس زراعي مصري متابع مع مزارع على برنامج. النهارده ${today}. ${ageText(p)}.
+${farmText(p.form)}
+البرنامج الحالي (JSON): ${JSON.stringify({stage_now:p.plan.stage_now, phases:p.plan.phases, weeks:p.plan.weeks})}
+التحديثات اللي فاتت:
+${hist}
+التحديث الجديد من المزارع:
+${u.photos?`- مرفق ${u.photos} صورة من الأرض. افحصها كويس (لون الورق القديم والجديد، النمو، آفات، أمراض، التربة، الري).`:"- مفيش صور."}
+- ملاحظات: ${u.notes||"لا يوجد"}
+- الجو: ${u.wxq}
+${u.wx?`- ${u.wx}`:"- مفيش بيانات جو حقيقية؛ استخدم الجو المعتاد للمنطقة والشهر وقول كده."}
+${KEY}
+${RULES}
+المطلوب: قيّم حالة الزرعة، وحدد المرحلة الحالية، وأي مشكلة (بالاسم العلمي للمسبب لو مرض أو آفة)، وعدّل البرنامج: رجّع weeks جديدة لـ 6 أسابيع من الأسبوع الحالي متعدلة على الصور والجو. اكتب في changes كل تعديل عملته وليه (مثلاً: زودنا الري 15% عشان موجة حر الخميس). لو محتاج صورة أو معلومة معينة المرة الجاية قولها في next_check.
+رد بكائن JSON واحد فقط: {"status":"healthy|warning|critical","assessment":"جملتين عن حالة الزرعة","problems":[{"name":"","scientific":"","agent":"","confidence":0-100,"action":""}],"alerts":[""],"changes":[""],"next_check":"امتى نتابع وصوّر إيه",${PLAN_SHAPE}}`;
+  }
+
+  function weeksHtml(p){
+    const now = weekNo(p)+1;
+    return (p.plan.weeks||[]).map(w=>{
+      const isNow = String(w.week).match(/\d+/) && +String(w.week).match(/\d+/)[0]===now;
+      return `<div class="wk${isNow?" now":""}"><h3><span>الأسبوع ${esc(w.week)} ${isNow?"· <span class='tag'>دلوقتي</span>":""}</span><span class="note">${esc(w.dates||"")}</span></h3>
+        ${w.stage?`<p class="note">${esc(w.stage)}</p>`:""}
+        ${w.irrigation?`<p><span class="lbl">💧 الري</span>${esc(w.irrigation)}</p>`:""}
+        ${w.fertigation?`<p><span class="lbl">🧪 التسميد</span>${esc(w.fertigation)}</p>`:""}
+        ${w.sprays?`<p><span class="lbl">🛡️ الرش</span>${esc(w.sprays)}</p>`:""}
+        ${w.scouting?`<p><span class="lbl">🔍 فتّش على</span>${esc(w.scouting)}</p>`:""}
+        ${w.work?`<p><span class="lbl">🧑‍🌾 شغل الأرض</span>${esc(w.work)}</p>`:""}
+      </div>`;}).join("");
+  }
+
+  function showProg(){
+    $("progList").hidden=true; $("progForm").hidden=true;
+    const p=cur, V=$("progView"); V.hidden=false;
+    const last = (p.checkins||[]).slice(-1)[0];
+    V.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><h2>${esc(p.plan.title||p.form.crop)}</h2><button class="btn ghost" id="pBack">↩ برامجي</button></div>
+      <dl class="kv"><dt>المحصول</dt><dd>${esc(p.form.crop)}${p.form.variety?" · "+esc(p.form.variety):""}</dd><dt>المكان</dt><dd>${esc(p.form.gov)} · ${esc(p.form.area)} فدان</dd><dt>العمر</dt><dd>${esc(ageText(p))}</dd><dt>المرحلة</dt><dd>${esc(p.plan.stage_now||"")}</dd></dl>
+      ${last?`<div class="verdict ${(VERDICT[last.status]||VERDICT.warning)[0]}"><span class="dot"></span>آخر متابعة ${esc(last.date.slice(0,10))}: ${esc(last.assessment)}</div>`:""}
+      ${p.plan.summary?`<p>${esc(p.plan.summary)}</p>`:""}
+      ${p.plan.season?`<p class="chg">🌦️ ${esc(p.plan.season)}</p>`:""}
+      ${Array.isArray(p.plan.warnings)&&p.plan.warnings.filter(Boolean).length?`<h3>تنبيهات</h3>${list(p.plan.warnings.filter(Boolean),"ul")}`:""}
+      <button class="btn" id="pUpd">📸 تحديث: صور + جو</button>
+      <h3>الأسابيع الجاية</h3>${weeksHtml(p)}
+      ${Array.isArray(p.plan.phases)&&p.plan.phases.length?`<h3>مراحل الموسم</h3>`+p.plan.phases.map(x=>`<div class="chk"><strong>${esc(x.stage)} <span class="note">· ${esc(x.timing)}</span></strong><span>${esc(x.key)}</span></div>`).join(""):""}
+      ${(p.checkins||[]).length?`<h3>سجل المتابعة</h3>`+p.checkins.slice().reverse().map(c=>`<div class="chk"><strong>${esc(c.date.slice(0,10))} · ${esc((VERDICT[c.status]||VERDICT.warning)[1])}</strong><span>${esc(c.assessment)}</span>
+        ${(c.problems||[]).length?`<span class="note">${c.problems.map(x=>esc(x.name)+(x.scientific?` (${esc(x.scientific)})`:"")).join("، ")}</span>`:""}
+        ${(c.changes||[]).length?list(c.changes,"ul"):""}${c.next_check?`<span class="note">المتابعة الجاية: ${esc(c.next_check)}</span>`:""}</div>`).join(""):""}
+      <div class="row"><button class="btn ghost" id="pDel" style="flex:1">🗑️ امسح البرنامج</button></div>`;
+    $("pBack").onclick = ()=>{ cur=null; showList(); };
+    $("pUpd").onclick = showUpd;
+    $("pDel").onclick = async ()=>{ if(!confirm("تمسح البرنامج ده؟")) return; await delProg(p); cur=null; showList(); };
+  }
+
+  function showUpd(){
+    const U=$("progUpd"); U.hidden=false; updFiles=[];
+    U.innerHTML = `<h2>تحديث البرنامج</h2>
+      <label class="drop"><input id="uPh" type="file" accept="image/*" multiple aria-label="صور من الأرض"><span id="uPhT"><span class="big">📸 صوّر الزرع أو التربة</span><br>لحد ٤ صور: النبات كله، ورقة قديمة، ورقة جديدة، التربة</span></label>
+      <label class="f">ملاحظاتك<textarea id="uNotes" placeholder="مثلاً: سمّدت سلفات بوتاسيوم ٢٥ كجم، الري ٣ ساعات، ظهر اصفرار في الأطراف"></textarea></label>
+      <div class="grid2">
+        <label>الجو الأيام اللي فاتت<select id="uT">${opts(["عادي","حر شديد","موجة حر / خماسين","برد","صقيع / تلج","مطر","رياح شديدة","شبورة ورطوبة عالية"])}</select></label>
+        <label>حالة الأرض<select id="uS">${opts(["رطوبتها كويسة","ناشفة","مبلولة زيادة / مية واقفة","فيها ملح على الوش"])}</select></label>
+      </div>
+      <p class="note">${parseLoc(cur.form.loc)?"🌦️ هنجيب الجو الحقيقي لأرضك تلقائي (أسبوع فات وأسبوع جاي).":"💡 لو اخترت أرض من أرضي في البرنامج، هنجيب الجو الحقيقي تلقائي."}</p>
+      <div class="row"><button class="btn" id="uGo" ${sample?"":"disabled"}>حدّث البرنامج</button><button class="btn ghost" id="uX">إلغاء</button></div>
+      <p class="status" id="uSt" aria-live="polite"></p>`;
+    $("uPh").onchange = e => { updFiles = Array.from(e.target.files||[]).slice(0,4); $("uPhT").innerHTML = updFiles.length?`<span class="big">${updFiles.length} صورة جاهزة</span>`:"اختار صور"; };
+    $("uX").onclick = ()=>{ U.hidden=true; };
+    $("uGo").onclick = async ()=>{
+      if(!sample) return;
+      let imgs = updFiles;
+      const lim = await sample.limits().catch(()=>null);
+      if (!lim || !lim.images) imgs = []; else imgs = imgs.slice(0, lim.images.maxCount||4);
+      $("uGo").disabled=true; $("uSt").className="status"; $("uSt").textContent="بنجيب الجو…";
+      const ll = parseLoc(cur.form.loc); const wxAuto = ll ? await weatherText(ll[0],ll[1]) : "";
+      const u = {photos:imgs.length, notes:$("uNotes").value.trim().slice(0,1500), wxq:`${$("uT").value}، والأرض: ${$("uS").value}`, wx:wxAuto}; $("uSt").className="status"; $("uSt").textContent="بنراجع الصور والجو ونعدّل البرنامج… ممكن ياخد دقيقة.";
+      ctl = new AbortController();
+      try{
+        const r = await sample.json(promptUpdate(cur,u), {images:imgs.length?imgs:undefined, signal:ctl.signal, modelTier:"complex"});
+        if(!r || typeof r!=="object") throw {code:"invalid_json"};
+        const c = {date:new Date().toISOString(), status:r.status, assessment:r.assessment||"", problems:(r.problems||[]).slice(0,4), alerts:r.alerts||[], changes:(r.changes||[]).slice(0,10), next_check:r.next_check||"", photos:u.photos, notes:u.notes, wx:u.wx?u.wx.slice(0,400):""};
+        cur.checkins = (cur.checkins||[]).concat([c]).slice(-30);
+        if (Array.isArray(r.weeks) && r.weeks.length) cur.plan.weeks = r.weeks;
+        if (r.stage_now) cur.plan.stage_now = r.stage_now;
+        if (Array.isArray(r.phases) && r.phases.length) cur.plan.phases = r.phases;
+        if (r.season) cur.plan.season = r.season;
+        cur.plan.warnings = (r.alerts||[]).concat(r.warnings||[]).filter(Boolean).slice(0,6);
+        await saveProg(cur);
+        $("progUpd").hidden=true; showProg();
+        $("progView").scrollIntoView({behavior:"smooth"});
+      }catch(e){ $("uSt").className="status err"; $("uSt").textContent=errMsg(e); $("uGo").disabled=false; }
+    };
+    U.scrollIntoView({behavior:"smooth"});
+  }
+
+  renderFinal(EXAMPLE, true); steps(1);
+
+  $("dField").innerHTML = fieldOpts("");
+  $("dField").onchange = ()=>{ const f=ardiFields().find(x=>x.id===$("dField").value); const cn=f&&CROP_AR[f.crop]; if(cn) for(const o of $("crop").options) if(o.text===cn) $("crop").value=o.value; };
+  if (location.hash==="#program") tab("prog");
+  if (aiServer){ sample = aiServer; $("go").disabled = !file; }
+  else { $("status").className="status err"; $("status").textContent="الذكاء الاصطناعي لسه مش متوصل. (صاحب التطبيق محتاج يحط مفتاح السيرفر.)"; }
+})();
+</script>
+</body></html>

@@ -1,0 +1,8 @@
+name = "ardi-ai"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Only pages from these sites can use the AI.
+ALLOWED_ORIGINS = "https://adhammokhless1.github.io"
