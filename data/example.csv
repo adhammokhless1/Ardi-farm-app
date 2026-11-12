@@ -1,0 +1,2 @@
+date,tmax_c,tmin_c,rh_mean_pct,rain_mm,wind_max_kmh,radiation_MJm2,et0_mm,etc_mm,irrigation_m3_per_feddan,drip_hours,soil_moist_3_9cm,soil_moist_9_27cm,soil_moist_27_81cm
+2026-11-11,24.9,12.8,63,0,9.9,15.2,3.04,3.496,17.512,0.219,0.18,0.219,0.265
